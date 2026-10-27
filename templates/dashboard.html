@@ -1,0 +1,522 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — JEEVANPATH Livestock Disaster Rescue{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h2>📊 Emergency Response Command Dashboard</h2>
+    <p>Live situational overview of at-risk livestock, evacuation assets, and safe shelter capacity.</p>
+  </div>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <button type="button" class="btn btn-primary" data-modal-target="modal-new-farmer">
+      + Register Farmer
+    </button>
+    <button type="button" class="btn btn-success" data-modal-target="modal-new-volunteer">
+      + Register Volunteer / Vehicle
+    </button>
+    <button type="button" class="btn btn-danger" data-modal-target="modal-new-alert">
+      🚨 Issue Disaster Alert
+    </button>
+    <a href="{{ url_for('coordinate') }}" class="btn btn-outline">
+      🎯 Operations Board
+    </a>
+  </div>
+</div>
+
+<!-- Key Performance Metrics Grid -->
+<div class="stats-grid">
+  <!-- Card 1: Registered Farms -->
+  <div class="stat-card" style="--stat-color: #38bdf8;">
+    <div class="stat-header">
+      <span class="stat-label">Registered Farms</span>
+      <span class="stat-icon">🏡</span>
+    </div>
+    <div class="stat-value">{{ stats.total_farms }}</div>
+    <div class="stat-subtext">
+      <strong style="color: #fca5a5;">{{ stats.pending_farms }} Pending</strong> | <span style="color: #7dd3fc;">{{ stats.in_progress_farms }} In Progress</span>
+    </div>
+  </div>
+
+  <!-- Card 2: Total Livestock -->
+  <div class="stat-card" style="--stat-color: #fbbf24;">
+    <div class="stat-header">
+      <span class="stat-label">Total Animals</span>
+      <span class="stat-icon">🐄</span>
+    </div>
+    <div class="stat-value">{{ stats.total_livestock }}</div>
+    <div class="stat-subtext">
+      <span>{{ stats.total_cattle }} Cattle</span> • <span>{{ stats.total_buffalo }} Buffalo</span>
+    </div>
+  </div>
+
+  <!-- Card 3: Active Disaster Alerts -->
+  <div class="stat-card" style="--stat-color: #ef4444;">
+    <div class="stat-header">
+      <span class="stat-label">Active Alerts</span>
+      <span class="stat-icon">🚨</span>
+    </div>
+    <div class="stat-value" style="color: {% if stats.active_alerts_count > 0 %}#f87171{% else %}#fff{% endif %};">
+      {{ stats.active_alerts_count }}
+    </div>
+    <div class="stat-subtext">
+      <strong style="color: #ef4444;">{{ stats.critical_alerts }} Critical Level</strong>
+    </div>
+  </div>
+
+  <!-- Card 4: Available Volunteers -->
+  <div class="stat-card" style="--stat-color: #10b981;">
+    <div class="stat-header">
+      <span class="stat-label">Volunteers Ready</span>
+      <span class="stat-icon">🤝</span>
+    </div>
+    <div class="stat-value">{{ stats.available_volunteers }}</div>
+    <div class="stat-subtext">
+      <span>Total: {{ stats.total_volunteers }} registered</span>
+    </div>
+  </div>
+
+  <!-- Card 5: Transport Vehicles -->
+  <div class="stat-card" style="--stat-color: #3b82f6;">
+    <div class="stat-header">
+      <span class="stat-label">Transport Units</span>
+      <span class="stat-icon">🚚</span>
+    </div>
+    <div class="stat-value">{{ stats.available_vehicles }}</div>
+    <div class="stat-subtext">
+      <span>Capacity: <strong>{{ stats.total_vehicle_capacity }}</strong> animals/trip</span>
+    </div>
+  </div>
+
+  <!-- Card 6: Shelter Capacity -->
+  <div class="stat-card" style="--stat-color: #a855f7;">
+    <div class="stat-header">
+      <span class="stat-label">Shelter Vacancy</span>
+      <span class="stat-icon">🏠</span>
+    </div>
+    <div class="stat-value">{{ stats.available_shelter_capacity }}</div>
+    <div class="stat-subtext">
+      <span>{{ stats.occupied_shelter_capacity }} occupied of {{ stats.total_shelter_capacity }} total</span>
+    </div>
+  </div>
+</div>
+
+<!-- Active Alerts Banner Section -->
+{% if active_alerts %}
+<div class="card" style="border-left: 4px solid #ef4444; background: linear-gradient(180deg, rgba(239, 68, 68, 0.08), var(--bg-card));">
+  <div class="card-header">
+    <div class="card-title" style="color: #fca5a5;">
+      🚨 Active Disaster Threats & Flood Warnings ({{ active_alerts|length }})
+    </div>
+    <a href="{{ url_for('alerts') }}" class="btn btn-sm btn-outline">Manage Alerts →</a>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+    {% for alert in active_alerts %}
+      <div style="background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: var(--radius-md); padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+          <h4 style="font-size: 1rem; color: #fff; font-weight: 700;">{{ alert.title }}</h4>
+          <span class="badge badge-critical pulse-dot">{{ alert.severity }}</span>
+        </div>
+        <p style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 10px;">{{ alert.description }}</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.78rem; color: var(--text-secondary);">
+          <span><strong>Type:</strong> {{ alert.disaster_type }}</span> •
+          <span><strong>Affected:</strong> <span style="color: #fbbf24;">{{ alert.affected_area }}</span></span> •
+          <span><strong>Radius:</strong> {{ alert.radius_km }} km</span>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Two-Column Operational Layout -->
+<div style="display: grid; grid-template-columns: 1.8fr 1.2fr; gap: 24px; margin-top: 10px;">
+
+  <!-- Left: Priority Evacuation Queue -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        ⏳ Priority Rescue Dispatch Queue
+      </div>
+      <a href="{{ url_for('coordinate') }}" class="btn btn-sm btn-primary">Dispatch Teams →</a>
+    </div>
+
+    <p style="font-size: 0.84rem; color: var(--text-secondary); margin-bottom: 14px;">
+      Showing farms inside flood zones with special needs (pregnant cows, young calves, rising water):
+    </p>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Farmer & Village</th>
+            <th>Livestock</th>
+            <th>Special Needs</th>
+            <th>Priority</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Farm items will be rendered -->
+          <tr>
+            <td>
+              <strong>Rameshwar Saikia</strong><br>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Salmora Ghat</span>
+            </td>
+            <td>
+              <span class="badge badge-normal">6 Cattle</span>
+            </td>
+            <td>
+              <span style="color: #fca5a5; font-size: 0.8rem;">2 pregnant cows; water rising near sheds</span>
+            </td>
+            <td><span class="badge badge-critical pulse-dot">CRITICAL</span></td>
+            <td>
+              <a href="{{ url_for('coordinate') }}" class="btn btn-sm btn-primary">Dispatch</a>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Bhupen Deka</strong><br>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Kamalabari</span>
+            </td>
+            <td>
+              <span class="badge badge-normal">8 Buffalo</span>
+            </td>
+            <td>
+              <span style="color: #fde68a; font-size: 0.8rem;">Adult buffaloes, water surrounding shed</span>
+            </td>
+            <td><span class="badge badge-critical">CRITICAL</span></td>
+            <td>
+              <span class="badge badge-in-progress">In Transit</span>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Manorama Gogoi</strong><br>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Rawanapar</span>
+            </td>
+            <td>
+              <span class="badge badge-normal">6 Mixed</span>
+            </td>
+            <td>
+              <span style="color: #fca5a5; font-size: 0.8rem;">2 newborn calves cannot cross mud</span>
+            </td>
+            <td><span class="badge badge-critical pulse-dot">CRITICAL</span></td>
+            <td>
+              <a href="{{ url_for('coordinate') }}" class="btn btn-sm btn-primary">Dispatch</a>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <strong>Tarun Bora</strong><br>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Bengenaati</span>
+            </td>
+            <td>
+              <span class="badge badge-normal">5 Cattle</span>
+            </td>
+            <td>
+              <span style="color: #fde68a; font-size: 0.8rem;">1 cow with injured hoof; needs vet wrap</span>
+            </td>
+            <td><span class="badge badge-high">HIGH</span></td>
+            <td>
+              <a href="{{ url_for('coordinate') }}" class="btn btn-sm btn-primary">Dispatch</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Right: Safe Shelters & Recent Log -->
+  <div>
+    <!-- Safe Shelters Capacity Monitor -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          🏠 Safe Emergency Shelters
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        {% for s in shelters %}
+          {% set occ = s.occupied_capacity %}
+          {% set tot = s.total_capacity %}
+          {% set pct = (occ / tot * 100)|round|int if tot > 0 else 0 %}
+          <div style="background: var(--bg-card-alt); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 4px;">
+              <strong style="color: #fff;">{{ s.name }}</strong>
+              <span style="color: {% if pct > 80 %}#f87171{% else %}#34d399{% endif %}; font-weight: 700;">
+                {{ s.total_capacity - s.occupied_capacity }} Available
+              </span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;">
+              Village: {{ s.village }} • Water: {{ '✅' if s.water_available else '❌' }} • Fodder: {{ '✅' if s.fodder_available else '❌' }} • Vet: {{ '✅' if s.vet_available else '❌' }}
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" style="width: {{ pct }}%; background: {% if pct > 80 %}#ef4444{% elif pct > 50 %}#f59e0b{% else %}#10b981{% endif %};"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">
+              <span>Occupied: {{ occ }}</span>
+              <span>Total: {{ tot }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Recent Rescue Activities Feed -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          ⏱️ Live Rescue Feed
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.82rem;">
+        {% for act in recent_activity %}
+          <div style="display: flex; gap: 10px; align-items: flex-start; padding-bottom: 10px; border-bottom: 1px solid var(--border-color);">
+            <span style="font-size: 1.1rem;">
+              {% if act.status == 'Completed' %}✅{% elif act.status == 'In Transit' %}🚚{% else %}📋{% endif %}
+            </span>
+            <div>
+              <div style="color: #fff; font-weight: 600;">
+                {{ act.farmer_name }} ({{ act.farmer_village }}) — {{ act.animal_count }} animals
+              </div>
+              <div style="color: var(--text-secondary); font-size: 0.75rem;">
+                Assigned to: <strong style="color: #93c5fd;">{{ act.volunteer_name or 'Unassigned' }}</strong> → Destination: <span style="color: #a7f3d0;">{{ act.shelter_name or 'In Transit' }}</span>
+              </div>
+            </div>
+          </div>
+        {% else %}
+          <p style="color: var(--text-muted);">No rescue assignments logged yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<!-- 1. Modal: Register Farmer -->
+<div id="modal-new-farmer" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">🌾 Register Farmer & Livestock</h3>
+      <button type="button" class="modal-close" data-modal-close>✕</button>
+    </div>
+    <form action="{{ url_for('farmers') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <div class="form-group-full">
+          <label class="form-label" for="f_name">Farmer Full Name *</label>
+          <input type="text" id="f_name" name="name" class="form-control" style="width: 100%;" placeholder="e.g. Rameshwar Saikia" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="f_phone">Phone Number (10 digits) *</label>
+          <input type="tel" id="f_phone" name="phone" class="form-control" style="width: 100%;" placeholder="98XXXXXXXX" pattern="[0-9]{10}" required>
+          <div class="form-helper">Stored securely; masked publicly.</div>
+        </div>
+
+        <div>
+          <label class="form-label" for="f_village">Village / Settlement *</label>
+          <input type="text" id="f_village" name="village" class="form-control" style="width: 100%;" placeholder="e.g. Salmora" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="f_type">Livestock Category</label>
+          <select id="f_type" name="livestock_type" class="form-select" style="width: 100%;">
+            <option value="Cattle">Cattle (Cows/Bulls)</option>
+            <option value="Buffalo">Buffalo</option>
+            <option value="Mixed">Mixed (Cattle & Buffalo)</option>
+            <option value="Goat/Sheep">Goat / Sheep</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="input_cattle_count">Cattle Count</label>
+          <input type="number" id="input_cattle_count" name="cattle_count" class="form-control" style="width: 100%;" min="0" value="0">
+        </div>
+
+        <div>
+          <label class="form-label" for="input_buffalo_count">Buffalo Count</label>
+          <input type="number" id="input_buffalo_count" name="buffalo_count" class="form-control" style="width: 100%;" min="0" value="0">
+        </div>
+
+        <div>
+          <label class="form-label" for="input_other_count">Other Animals</label>
+          <input type="number" id="input_other_count" name="other_count" class="form-control" style="width: 100%;" min="0" value="0">
+        </div>
+
+        <div class="form-group-full" style="background: var(--bg-surface); padding: 10px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.85rem; font-weight: 600;">Total Animals Requiring Evacuation:</span>
+          <span id="display_total_animals" style="font-size: 1.2rem; font-weight: 800; color: var(--accent-amber-light);">0</span>
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="f_needs">Special Needs & Urgent Risk Factors</label>
+          <textarea id="f_needs" name="special_needs" class="form-control" style="width: 100%;" rows="2" placeholder="e.g. 2 pregnant cows, rising water 3ft near shed, calf cannot swim"></textarea>
+        </div>
+
+        <div>
+          <label class="form-label" for="f_lat">Latitude (Optional)</label>
+          <input type="text" id="f_lat" name="latitude" class="form-control" style="width: 100%;" placeholder="26.9165">
+        </div>
+
+        <div>
+          <label class="form-label" for="f_lng">Longitude (Optional)</label>
+          <input type="text" id="f_lng" name="longitude" class="form-control" style="width: 100%;" placeholder="94.2230">
+        </div>
+
+        <div class="form-group-full">
+          <button type="button" class="btn btn-sm btn-outline btn-autofill-gps" data-lat-id="f_lat" data-lng-id="f_lng" style="width: 100%;">
+            📍 Autofill with Realistic Majuli Flood Plain GPS
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit Registration</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 2. Modal: Register Volunteer -->
+<div id="modal-new-volunteer" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">🚚 Register Volunteer / Rescue Resource</h3>
+      <button type="button" class="modal-close" data-modal-close>✕</button>
+    </div>
+    <form action="{{ url_for('volunteers') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <div class="form-group-full">
+          <label class="form-label" for="v_name">Volunteer / Organization Name *</label>
+          <input type="text" id="v_name" name="name" class="form-control" style="width: 100%;" placeholder="e.g. Kisan Tractor Squad" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_phone">Contact Phone (10 digits) *</label>
+          <input type="tel" id="v_phone" name="phone" class="form-control" style="width: 100%;" placeholder="94XXXXXXXX" pattern="[0-9]{10}" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_village">Base Village / Location *</label>
+          <input type="text" id="v_village" name="village" class="form-control" style="width: 100%;" placeholder="e.g. Kamalabari" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_type">Offered Resource Type *</label>
+          <select id="v_type" name="resource_type" class="form-select" style="width: 100%;" required>
+            <option value="Vehicle">Vehicle / Tractor / Truck / Boat</option>
+            <option value="Shelter">Emergency High Ground / Barn</option>
+            <option value="Fodder">Dry Fodder / Feed Supply</option>
+            <option value="Water & First Aid">Clean Water & Mobile Vet Aid</option>
+            <option value="Rescue Team">Physical Rescue / Evacuation Hand</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_cap">Capacity (Animal count or units)</label>
+          <input type="number" id="v_cap" name="capacity" class="form-control" style="width: 100%;" min="0" value="8" placeholder="e.g. 8 animals">
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="v_details">Resource & Equipment Specifications</label>
+          <input type="text" id="v_details" name="resource_details" class="form-control" style="width: 100%;" placeholder="e.g. 45HP 4x4 tractor with high air snorkel & livestock trailer">
+        </div>
+
+        <div>
+          <label class="form-label" for="v_lat">Base Latitude</label>
+          <input type="text" id="v_lat" name="latitude" class="form-control" style="width: 100%;" placeholder="26.9620">
+        </div>
+
+        <div>
+          <label class="form-label" for="v_lng">Base Longitude</label>
+          <input type="text" id="v_lng" name="longitude" class="form-control" style="width: 100%;" placeholder="94.1700">
+        </div>
+
+        <div class="form-group-full">
+          <button type="button" class="btn btn-sm btn-outline btn-autofill-gps" data-lat-id="v_lat" data-lng-id="v_lng" style="width: 100%;">
+            📍 Autofill with Realistic GPS
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-success">Register Resource</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 3. Modal: Issue Disaster Alert -->
+<div id="modal-new-alert" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title" style="color: #f87171;">🚨 Issue Disaster Alert</h3>
+      <button type="button" class="modal-close" data-modal-close>✕</button>
+    </div>
+    <form action="{{ url_for('alerts') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <div class="form-group-full">
+          <label class="form-label" for="a_title">Disaster Alert Headline *</label>
+          <input type="text" id="a_title" name="title" class="form-control" style="width: 100%;" placeholder="e.g. Flash Flood Surge — Embankment Breach" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="a_type">Disaster Category *</label>
+          <select id="a_type" name="disaster_type" class="form-select" style="width: 100%;">
+            <option value="Flood">Monsoon Flood</option>
+            <option value="River Breach">River Dyke / Embankment Breach</option>
+            <option value="Flash Flood">Flash Flood</option>
+            <option value="Cyclone">Cyclone / Heavy Storm</option>
+            <option value="Heavy Waterlogging">Severe Waterlogging</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="a_sev">Severity Level *</label>
+          <select id="a_sev" name="severity" class="form-select" style="width: 100%;">
+            <option value="Critical">Critical (Immediate Evacuation Required)</option>
+            <option value="High">High (Water Rising Rapidly)</option>
+            <option value="Medium">Medium (Advisory Alert)</option>
+            <option value="Low">Low (Early Monitoring)</option>
+          </select>
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="a_area">Affected Villages (Comma-separated) *</label>
+          <input type="text" id="a_area" name="affected_area" class="form-control" style="width: 100%;" placeholder="Salmora, Kamalabari, Rawanapar" required>
+          <div class="form-helper">Farms in these villages will automatically be escalated to Critical priority.</div>
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="a_desc">Disaster Description & Instructions *</label>
+          <textarea id="a_desc" name="description" class="form-control" style="width: 100%;" rows="3" placeholder="Provide ground situation, estimated water rise, and evacuation directions..." required></textarea>
+        </div>
+
+        <div>
+          <label class="form-label" for="a_rad">Threat Radius (km)</label>
+          <input type="number" id="a_rad" name="radius_km" class="form-control" style="width: 100%;" step="0.5" min="1" value="5.0">
+        </div>
+
+        <div>
+          <label class="form-label" for="a_lat">Center Latitude</label>
+          <input type="text" id="a_lat" name="latitude" class="form-control" style="width: 100%;" value="26.9500">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-danger">Broadcast Alert</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

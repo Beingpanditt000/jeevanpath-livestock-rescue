@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Access Denied (403) — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div style="max-width: 560px; margin: 60px auto; text-align: center;">
+  <div class="card" style="border-top: 4px solid var(--accent-rose); padding: 40px 24px;">
+    <div style="font-size: 3rem; margin-bottom: 12px;">🚫</div>
+    <h2 style="font-size: 1.6rem; color: #fff; margin-bottom: 8px;">Access Denied (403 Forbidden)</h2>
+    <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 24px;">
+      You do not have the required role privileges to access this operational area.
+    </p>
+
+    <div style="background: var(--bg-surface); padding: 16px; border-radius: var(--radius-md); font-size: 0.85rem; color: #cbd5e1; margin-bottom: 24px; text-align: left; border-left: 3px solid var(--accent-amber);">
+      <strong>Your Current Role:</strong> 
+      {% if current_user %}
+        <span class="badge badge-high" style="margin-left: 6px;">{{ current_user.role }}</span> ({{ current_user.username }})
+      {% else %}
+        <span class="badge badge-normal" style="margin-left: 6px;">Anonymous Guest</span>
+      {% endif %}
+      <div style="margin-top: 8px; color: var(--text-muted); font-size: 0.8rem;">
+        Emergency dispatch, alert broadcasting, and system administrative actions are restricted strictly to authorized Rescue Coordinators.
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: center; gap: 12px;">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline">← Back to Dashboard</a>
+      {% if not is_authenticated %}
+        <a href="{{ url_for('login') }}" class="btn btn-primary">Log In as Coordinator</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

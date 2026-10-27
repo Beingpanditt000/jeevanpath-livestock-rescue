@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Disaster Alerts — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h2>🚨 Disaster Alert & Warning Management</h2>
+    <p>Broadcast real-time flood surges, embankment dyke breaches, and automated livestock evacuation advisories.</p>
+  </div>
+  <button type="button" class="btn btn-danger" data-modal-target="modal-new-alert">
+    + Issue Disaster Alert
+  </button>
+</div>
+
+<!-- Filters Bar -->
+<div class="filters-bar">
+  <form action="{{ url_for('alerts') }}" method="GET" style="display: flex; gap: 12px; align-items: center;">
+    <div class="filter-group">
+      <label class="filter-label" for="filter_alert_status">Alert Status:</label>
+      <select id="filter_alert_status" name="status" class="form-select" onchange="this.form.submit()">
+        <option value="">All Alerts</option>
+        <option value="Active" {% if selected_status == 'Active' %}selected{% endif %}>Active Only</option>
+        <option value="Resolved" {% if selected_status == 'Resolved' %}selected{% endif %}>Resolved / History</option>
+      </select>
+    </div>
+    {% if selected_status %}
+      <a href="{{ url_for('alerts') }}" class="btn btn-sm btn-outline">Show All</a>
+    {% endif %}
+  </form>
+</div>
+
+<!-- Alerts Grid -->
+<div style="display: flex; flex-direction: column; gap: 16px;">
+  {% for alert in alerts %}
+    <div class="card" style="margin-bottom: 0; border-left: 5px solid {% if alert.status == 'Resolved' %}#64748b{% elif alert.severity == 'Critical' %}#ef4444{% elif alert.severity == 'High' %}#f59e0b{% else %}#0284c7{% endif %};">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <h3 style="font-size: 1.2rem; color: #fff; font-weight: 700;">{{ alert.title }}</h3>
+            {% if alert.status == 'Active' %}
+              <span class="badge badge-critical pulse-dot">{{ alert.severity }} Threat</span>
+            {% else %}
+              <span class="badge badge-normal">Resolved</span>
+            {% endif %}
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary);">
+            Issued by: <strong>{{ alert.issued_by }}</strong> • Type: <strong style="color: #38bdf8;">{{ alert.disaster_type }}</strong> • {{ alert.created_at }}
+          </div>
+        </div>
+
+        <div>
+          {% if alert.status == 'Active' %}
+            <form action="{{ url_for('resolve_alert', alert_id=alert.id) }}" method="POST" onsubmit="return confirm('Mark this disaster alert as resolved? Danger zone will be cleared.');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="btn btn-sm btn-outline" style="border-color: #34d399; color: #6ee7b7;">
+                ✓ Mark Resolved
+              </button>
+            </form>
+          {% else %}
+            <span style="font-size: 0.8rem; color: var(--text-muted);">
+              Resolved at {{ alert.resolved_at }}
+            </span>
+          {% endif %}
+        </div>
+      </div>
+
+      <p style="font-size: 0.9rem; color: #e2e8f0; margin-bottom: 12px; line-height: 1.6;">
+        {{ alert.description }}
+      </p>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.82rem; background: var(--bg-card-alt); padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+        <div>
+          <strong style="color: var(--text-secondary);">Affected Area / Villages:</strong>
+          <span style="color: #fbbf24; font-weight: 600;">{{ alert.affected_area }}</span>
+        </div>
+        <div>
+          <strong style="color: var(--text-secondary);">Threat Radius:</strong>
+          <span>{{ alert.radius_km }} km</span>
+        </div>
+        <div>
+          <strong style="color: var(--text-secondary);">Epicenter GPS:</strong>
+          <span style="font-family: monospace;">{{ alert.latitude }}, {{ alert.longitude }}</span>
+        </div>
+        <div style="margin-left: auto;">
+          <a href="{{ url_for('map_view') }}" style="color: #38bdf8; font-weight: 600;">
+            View Danger Ring on GIS Map →
+          </a>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card" style="text-align: center; padding: 40px; color: var(--text-muted);">
+      No disaster alerts registered.
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Modal: Issue Disaster Alert -->
+<div id="modal-new-alert" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title" style="color: #f87171;">🚨 Broadcast Disaster Alert</h3>
+      <button type="button" class="modal-close" data-modal-close>✕</button>
+    </div>
+    <form action="{{ url_for('alerts') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <div class="form-group-full">
+          <label class="form-label" for="a_title">Disaster Alert Headline *</label>
+          <input type="text" id="a_title" name="title" class="form-control" style="width: 100%;" placeholder="e.g. Flash Flood Surge — Embankment Breach" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="a_type">Disaster Category *</label>
+          <select id="a_type" name="disaster_type" class="form-select" style="width: 100%;">
+            <option value="Flood">Monsoon Flood</option>
+            <option value="River Breach">River Dyke / Embankment Breach</option>
+            <option value="Flash Flood">Flash Flood</option>
+            <option value="Cyclone">Cyclone / Heavy Storm</option>
+            <option value="Heavy Waterlogging">Severe Waterlogging</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="a_sev">Severity Level *</label>
+          <select id="a_sev" name="severity" class="form-select" style="width: 100%;">
+            <option value="Critical">Critical (Immediate Evacuation Required)</option>
+            <option value="High">High (Water Rising Rapidly)</option>
+            <option value="Medium">Medium (Advisory Alert)</option>
+            <option value="Low">Low (Early Monitoring)</option>
+          </select>
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="a_area">Affected Villages (Comma-separated) *</label>
+          <input type="text" id="a_area" name="affected_area" class="form-control" style="width: 100%;" placeholder="Salmora, Kamalabari, Rawanapar" required>
+          <div class="form-helper">Farms in these villages will automatically be escalated to Critical priority.</div>
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="a_desc">Disaster Description & Instructions *</label>
+          <textarea id="a_desc" name="description" class="form-control" style="width: 100%;" rows="3" placeholder="Provide ground situation, estimated water rise, and evacuation directions..." required></textarea>
+        </div>
+
+        <div>
+          <label class="form-label" for="a_rad">Threat Radius (km)</label>
+          <input type="number" id="a_rad" name="radius_km" class="form-control" style="width: 100%;" step="0.5" min="1" value="5.0">
+        </div>
+
+        <div>
+          <label class="form-label" for="a_lat">Center Latitude</label>
+          <input type="text" id="a_lat" name="latitude" class="form-control" style="width: 100%;" value="26.9500">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-danger">Broadcast Alert</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

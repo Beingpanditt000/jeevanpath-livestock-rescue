@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}My Livestock & Evacuation — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h2>🌾 My Livestock & Evacuation Status</h2>
+    <p>Manage your registered cattle and buffalo headcounts, medical risk factors, and request urgent rescue teams.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('map_view') }}" class="btn btn-outline">
+      🗺️ View Tactical Map
+    </a>
+  </div>
+</div>
+
+{% if not farmer %}
+  <div class="card" style="text-align: center; padding: 40px;">
+    <div style="font-size: 2.5rem; margin-bottom: 12px;">🐄</div>
+    <h3 style="color: #fff; margin-bottom: 8px;">No Livestock Record Linked Yet</h3>
+    <p style="color: var(--text-secondary); max-width: 480px; margin: 0 auto 20px;">
+      Your farmer account is active, but you have not registered your livestock census yet.
+    </p>
+    <a href="{{ url_for('farmers') }}" class="btn btn-primary">Register Livestock Now</a>
+  </div>
+{% else %}
+
+  <!-- Evacuation Status Alert Card -->
+  <div class="card" style="border-left: 5px solid {% if farmer.rescue_status == 'Safe in Shelter' or farmer.rescue_status == 'Rescued' %}#10b981{% elif farmer.rescue_status == 'In Progress' %}#0284c7{% else %}#f59e0b{% endif %};">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+          Current Evacuation Status
+        </div>
+        <div style="font-size: 1.4rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+          {% if farmer.rescue_status == 'Safe in Shelter' %}
+            <span style="color: #34d399;">🏠 Safe in High-Ground Shelter</span>
+          {% elif farmer.rescue_status == 'Rescued' %}
+            <span style="color: #34d399;">✅ Rescued & Secured</span>
+          {% elif farmer.rescue_status == 'In Progress' %}
+            <span style="color: #38bdf8;">🚚 Evacuation Team Deployed / In Transit</span>
+          {% else %}
+            <span style="color: #fbbf24;">⏳ Awaiting Rescue Team Dispatch</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div>
+        {% if farmer.rescue_status == 'Pending' %}
+          <form action="{{ url_for('my_livestock') }}" method="POST" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="action" value="request_urgent">
+            <button type="submit" class="btn btn-danger" onclick="return confirm('Broadcast urgent Critical priority alert to coordinators?');">
+              🚨 Escalate to Critical Emergency
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if farmer.rescue_status == 'In Progress' %}
+      <div style="margin-top: 14px; background: rgba(2, 132, 199, 0.1); padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid rgba(2, 132, 199, 0.3); font-size: 0.88rem;">
+        <strong>Assigned Rescue Team:</strong> <span style="color: #7dd3fc;">{{ farmer.volunteer_name or 'Mobile Rescue Team' }}</span>
+        {% if farmer.volunteer_phone %} (📞 {{ farmer.volunteer_phone }}){% endif %}
+        <br>
+        <strong>Destination Shelter:</strong> <span style="color: #a7f3d0;">{{ farmer.shelter_name or 'Designated High Ground Pen' }}</span>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Summary Stats for this Farm -->
+  <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px;">
+    <div class="stat-card" style="--stat-color: #38bdf8;">
+      <div class="stat-header">
+        <span class="stat-label">Total Livestock</span>
+        <span class="stat-icon">🐄</span>
+      </div>
+      <div class="stat-value">{{ farmer.animal_count }}</div>
+      <div class="stat-subtext">Category: {{ farmer.livestock_type }}</div>
+    </div>
+
+    <div class="stat-card" style="--stat-color: #fbbf24;">
+      <div class="stat-header">
+        <span class="stat-label">Cattle (Cows/Bulls)</span>
+        <span class="stat-icon">🐂</span>
+      </div>
+      <div class="stat-value">{{ farmer.cattle_count }}</div>
+    </div>
+
+    <div class="stat-card" style="--stat-color: #a855f7;">
+      <div class="stat-header">
+        <span class="stat-label">Buffaloes</span>
+        <span class="stat-icon">🐃</span>
+      </div>
+      <div class="stat-value">{{ farmer.buffalo_count }}</div>
+    </div>
+
+    <div class="stat-card" style="--stat-color: #ef4444;">
+      <div class="stat-header">
+        <span class="stat-label">Rescue Priority</span>
+        <span class="stat-icon">⚠️</span>
+      </div>
+      <div class="stat-value" style="font-size: 1.5rem; color: {% if farmer.priority == 'Critical' %}#f87171{% elif farmer.priority == 'High' %}#fbbf24{% else %}#cbd5e1{% endif %};">
+        {{ farmer.priority }}
+      </div>
+      <div class="stat-subtext">Village: {{ farmer.village }}</div>
+    </div>
+  </div>
+
+  <!-- Update Livestock Details Form -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        ✏️ Update My Livestock Records & Special Needs
+      </div>
+    </div>
+
+    <form action="{{ url_for('my_livestock') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="update_details">
+
+      <div class="form-grid">
+        <div>
+          <label class="form-label" for="f_village">Settlement / Village *</label>
+          <input type="text" id="f_village" name="village" class="form-control" style="width: 100%;" value="{{ farmer.village }}" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="f_phone">Contact Phone *</label>
+          <input type="tel" id="f_phone" name="phone" class="form-control" style="width: 100%;" value="{{ farmer.phone }}" pattern="[0-9]{10}" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="input_cattle_count">Cattle Count</label>
+          <input type="number" id="input_cattle_count" name="cattle_count" class="form-control" style="width: 100%;" min="0" value="{{ farmer.cattle_count }}">
+        </div>
+
+        <div>
+          <label class="form-label" for="input_buffalo_count">Buffalo Count</label>
+          <input type="number" id="input_buffalo_count" name="buffalo_count" class="form-control" style="width: 100%;" min="0" value="{{ farmer.buffalo_count }}">
+        </div>
+
+        <div>
+          <label class="form-label" for="input_other_count">Other Animals (Goats/Calves)</label>
+          <input type="number" id="input_other_count" name="other_count" class="form-control" style="width: 100%;" min="0" value="{{ farmer.other_count }}">
+        </div>
+
+        <div>
+          <label class="form-label" for="f_priority">Priority Level</label>
+          <select id="f_priority" name="priority" class="form-select" style="width: 100%;">
+            <option value="Normal" {% if farmer.priority == 'Normal' %}selected{% endif %}>Normal (No immediate flood ingress)</option>
+            <option value="High" {% if farmer.priority == 'High' %}selected{% endif %}>High (Water rising near cattle shed)</option>
+            <option value="Critical" {% if farmer.priority == 'Critical' %}selected{% endif %}>Critical (Submerged / Immediate danger)</option>
+          </select>
+        </div>
+
+        <div class="form-group-full" style="background: var(--bg-surface); padding: 10px 14px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color);">
+          <span style="font-size: 0.85rem; font-weight: 600;">Total Livestock Census:</span>
+          <span id="display_total_animals" style="font-size: 1.25rem; font-weight: 800; color: var(--accent-amber-light);">{{ farmer.animal_count }}</span>
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="f_needs">Special Medical / Gestation / Vulnerability Needs</label>
+          <textarea id="f_needs" name="special_needs" class="form-control" style="width: 100%;" rows="3" placeholder="e.g. 2 pregnant cows, 1 injured hoof, rising water level 3 feet">{{ farmer.special_needs }}</textarea>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="submit" class="btn btn-primary">
+          Save Livestock Updates
+        </button>
+      </div>
+    </form>
+  </div>
+
+{% endif %}
+{% endblock %}

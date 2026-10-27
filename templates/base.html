@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}JEEVANPATH — Livestock Disaster Rescue & Coordination Platform{% endblock %}</title>
+  
+  <!-- Leaflet CSS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  
+  <!-- Custom Modern Design System -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  <!-- Safety & Emergency Simulation Disclaimer Bar -->
+  <div class="disclaimer-banner">
+    <span class="badge-pill">Emergency Platform</span>
+    <span>⚠️ JEEVANPATH Emergency Coordination Network — Simulated disaster response scenario for Majuli District, Assam. For real emergencies, dial 112 / DDMA.</span>
+  </div>
+
+  <!-- Main Site Navigation -->
+  <header class="site-header">
+    <div class="nav-container">
+      <div class="brand-wrapper">
+        <a href="{{ url_for('dashboard') }}" style="display: flex; align-items: center; gap: 12px; text-decoration: none;">
+          <div class="brand-logo">🐄</div>
+          <div class="brand-text">
+            <h1>JEEVANPATH</h1>
+            <p>Livestock Disaster Rescue Network</p>
+          </div>
+        </a>
+      </div>
+
+      <nav>
+        <ul class="nav-menu">
+          {% if is_coordinator %}
+            <li>
+              <a href="{{ url_for('rescue_dashboard') }}" class="nav-link {% if active_page == 'rescue_dashboard' %}active{% endif %}">
+                🛡️ Rescue Dashboard
+              </a>
+            </li>
+            <li>
+              <a href="{{ url_for('coordinate') }}" class="nav-link {% if active_page == 'coordinate' %}active{% endif %}">
+                🎯 Operations Board
+              </a>
+            </li>
+            <li>
+              <a href="{{ url_for('alerts') }}" class="nav-link {% if active_page == 'alerts' %}active{% endif %}">
+                🚨 Alerts
+              </a>
+            </li>
+            <li>
+              <a href="{{ url_for('farmers') }}" class="nav-link {% if active_page == 'farmers' %}active{% endif %}">
+                🌾 Farmers
+              </a>
+            </li>
+            <li>
+              <a href="{{ url_for('volunteers') }}" class="nav-link {% if active_page == 'volunteers' %}active{% endif %}">
+                🚚 Volunteers
+              </a>
+            </li>
+          {% elif is_farmer %}
+            <li>
+              <a href="{{ url_for('farmer_dashboard') }}" class="nav-link {% if active_page == 'farmer_dashboard' %}active{% endif %}">
+                🌾 Farmer Dashboard
+              </a>
+            </li>
+          {% elif is_volunteer %}
+            <li>
+              <a href="{{ url_for('volunteer_dashboard') }}" class="nav-link {% if active_page == 'volunteer_dashboard' %}active{% endif %}">
+                🚚 Volunteer Dashboard
+              </a>
+            </li>
+          {% else %}
+            <li>
+              <a href="{{ url_for('dashboard') }}" class="nav-link {% if active_page == 'welcome' or active_page == 'dashboard' %}active{% endif %}">
+                🏠 Welcome
+              </a>
+            </li>
+          {% endif %}
+          <li>
+            <a href="{{ url_for('map_view') }}" class="nav-link {% if active_page == 'map' %}active{% endif %}">
+              🗺️ Tactical Map
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        {% if is_authenticated %}
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 0.8rem; text-align: right; line-height: 1.2;">
+              <span class="badge {% if is_coordinator %}badge-critical{% elif is_farmer %}badge-high{% else %}badge-normal{% endif %}" style="font-size: 0.68rem;">
+                {{ current_user.role }}
+              </span>
+              <div style="color: #fff; font-weight: 700; margin-top: 2px;">{{ current_user.username }}</div>
+            </div>
+            <a href="{{ url_for('change_password') }}" class="btn btn-sm btn-outline" title="Change Password" style="font-size: 0.78rem;">
+              🔑 Password
+            </a>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline" style="border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;" title="Log Out">
+              🚪 Logout
+            </a>
+          </div>
+        {% else %}
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <a href="{{ url_for('login') }}" class="btn btn-sm btn-primary">
+              🔑 Sign In
+            </a>
+            <a href="{{ url_for('register') }}" class="btn btn-sm btn-outline">
+              📝 Register
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <!-- Flash Notification Messages -->
+  <div class="main-content" style="padding-bottom: 0;">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-container">
+          {% for category, message in messages %}
+            <div class="flash-message flash-{{ category }}">
+              <span>{{ message }}</span>
+              <button type="button" style="background: none; border: none; color: inherit; cursor: pointer; font-size: 1.1rem;" onclick="this.parentElement.remove()">✕</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Page Content Block -->
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div>
+        <strong>JEEVANPATH Platform</strong> — Community Livestock Disaster Rescue Network | Built with Python Flask & SQLite
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <span>Operational Scenario: Majuli River Island, Assam</span>
+        {% if is_coordinator %}
+          <form action="{{ url_for('reset_demo') }}" method="POST" style="display: inline;" onsubmit="return confirm('Reset database back to original sample dataset?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-outline" style="font-size: 0.75rem; padding: 3px 8px;">
+              🔄 Reset Sample Data
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account — JEEVANPATH Disaster Coordination{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px; margin: 30px auto;">
+
+  <!-- Header Section -->
+  <div style="text-align: center; margin-bottom: 24px;">
+    <div style="width: 48px; height: 48px; margin: 0 auto 10px; background: linear-gradient(135deg, #0284c7, #10b981); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem;">
+      🐄
+    </div>
+    <h2 style="font-size: 1.6rem; font-weight: 800; color: #fff;">Join the JEEVANPATH Rescue Network</h2>
+    <p style="font-size: 0.88rem; color: var(--text-secondary); margin-top: 4px;">
+      Register your farm livestock for emergency evacuation assistance or mobilize your rescue transport resources.
+    </p>
+  </div>
+
+  <!-- Role Selector Switcher -->
+  <div style="display: flex; gap: 12px; margin-bottom: 24px; background: var(--bg-card); padding: 6px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+    <a href="{{ url_for('register_farmer') }}" class="btn {% if active_reg == 'farmer' %}btn-primary{% else %}btn-outline{% endif %}" style="flex: 1; text-align: center; font-weight: 700;">
+      🌾 Register as Farmer (Livestock Owner)
+    </a>
+    <a href="{{ url_for('register_volunteer') }}" class="btn {% if active_reg == 'volunteer' %}btn-success{% else %}btn-outline{% endif %}" style="flex: 1; text-align: center; font-weight: 700;">
+      🚚 Register as Volunteer / Transport
+    </a>
+  </div>
+
+  <!-- Admin Protection Warning Banner -->
+  <div style="background: rgba(2, 132, 199, 0.1); border-left: 3px solid var(--accent-blue-light); padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.82rem; color: #bae6fd; margin-bottom: 24px;">
+    <strong>🛡️ Role Access Policy:</strong> Coordinator and Administrative accounts are provisioned exclusively via administrative CLI authorization (<code>python create_admin.py</code>) and cannot be registered publicly.
+  </div>
+
+  {% if active_reg == 'volunteer' %}
+    <!-- Volunteer Registration Form -->
+    <div class="card" style="box-shadow: var(--shadow-lg);">
+      <div class="card-header">
+        <div class="card-title" style="color: #6ee7b7;">
+          🚚 Volunteer & Rescue Equipment Registration
+        </div>
+      </div>
+
+      <form action="{{ url_for('register_volunteer') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <div class="form-grid">
+          <!-- Account Credentials -->
+          <div class="form-group-full" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 4px;">
+            <strong style="font-size: 0.9rem; color: #fff;">1. Account Login Credentials</strong>
+          </div>
+
+          <div>
+            <label class="form-label" for="v_username">Account Username *</label>
+            <input type="text" id="v_username" name="username" class="form-control" style="width: 100%;" placeholder="e.g. volunteer_dipankar" required>
+            <div class="form-helper">Unique ID for logging in (min 3 chars).</div>
+          </div>
+
+          <div>
+            <label class="form-label" for="v_name">Full Name / Organization *</label>
+            <input type="text" id="v_name" name="full_name" class="form-control" style="width: 100%;" placeholder="e.g. Kisan Tractor Squad" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="v_pwd">Password (min 6 chars) *</label>
+            <input type="password" id="v_pwd" name="password" class="form-control" style="width: 100%;" placeholder="••••••••" minlength="6" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="v_pwd_conf">Confirm Password *</label>
+            <input type="password" id="v_pwd_conf" name="confirm_password" class="form-control" style="width: 100%;" placeholder="••••••••" minlength="6" required>
+          </div>
+
+          <!-- Resource Details -->
+          <div class="form-group-full" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-top: 10px; margin-bottom: 4px;">
+            <strong style="font-size: 0.9rem; color: #fff;">2. Rescue Resource & Operating Base</strong>
+          </div>
+
+          <div>
+            <label class="form-label" for="v_phone">Contact Phone (10 digits) *</label>
+            <input type="tel" id="v_phone" name="phone" class="form-control" style="width: 100%;" placeholder="98XXXXXXXX" pattern="[0-9]{10}" required>
+            <div class="form-helper">Stored securely; masked publicly.</div>
+          </div>
+
+          <div>
+            <label class="form-label" for="v_village">Base Village / Location *</label>
+            <input type="text" id="v_village" name="village" class="form-control" style="width: 100%;" placeholder="e.g. Kamalabari" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="v_res_type">Offered Resource Type *</label>
+            <select id="v_res_type" name="resource_type" class="form-select" style="width: 100%;" required>
+              <option value="Vehicle">Vehicle / Tractor / Truck / Boat</option>
+              <option value="Shelter">Emergency Barn / High Ground Pen</option>
+              <option value="Fodder">Dry Fodder / Feed Stockpile</option>
+              <option value="Water & First Aid">Clean Water & Mobile Vet Aid</option>
+              <option value="Rescue Team">Physical Evacuation Crew / Handlers</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label" for="v_capacity">Carrying Capacity (Animals/Units) *</label>
+            <input type="number" id="v_capacity" name="capacity" class="form-control" style="width: 100%;" min="0" value="8" required>
+          </div>
+
+          <div class="form-group-full">
+            <label class="form-label" for="v_details">Equipment Specifications</label>
+            <input type="text" id="v_details" name="resource_details" class="form-control" style="width: 100%;" placeholder="e.g. 45HP 4x4 Tractor with high air snorkel & cattle trailer">
+          </div>
+        </div>
+
+        <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+          <a href="{{ url_for('login') }}" class="btn btn-outline">Back to Login</a>
+          <button type="submit" class="btn btn-success" style="padding: 10px 24px; font-weight: 700;">
+            Complete Volunteer Registration
+          </button>
+        </div>
+      </form>
+    </div>
+
+  {% else %}
+    <!-- Farmer Registration Form (Default) -->
+    <div class="card" style="box-shadow: var(--shadow-lg);">
+      <div class="card-header">
+        <div class="card-title" style="color: #7dd3fc;">
+          🌾 Farmer Account & Livestock Registration
+        </div>
+      </div>
+
+      <form action="{{ url_for('register_farmer') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <div class="form-grid">
+          <!-- Account Credentials -->
+          <div class="form-group-full" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 4px;">
+            <strong style="font-size: 0.9rem; color: #fff;">1. Account Login Credentials</strong>
+          </div>
+
+          <div>
+            <label class="form-label" for="f_username">Account Username *</label>
+            <input type="text" id="f_username" name="username" class="form-control" style="width: 100%;" placeholder="e.g. farmer_pranab" required>
+            <div class="form-helper">Unique login ID (min 3 chars).</div>
+          </div>
+
+          <div>
+            <label class="form-label" for="f_name">Farmer Full Name *</label>
+            <input type="text" id="f_name" name="full_name" class="form-control" style="width: 100%;" placeholder="e.g. Pranab Saikia" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="f_pwd">Password (min 6 chars) *</label>
+            <input type="password" id="f_pwd" name="password" class="form-control" style="width: 100%;" placeholder="••••••••" minlength="6" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="f_pwd_conf">Confirm Password *</label>
+            <input type="password" id="f_pwd_conf" name="confirm_password" class="form-control" style="width: 100%;" placeholder="••••••••" minlength="6" required>
+          </div>
+
+          <!-- Livestock Details -->
+          <div class="form-group-full" style="border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-top: 10px; margin-bottom: 4px;">
+            <strong style="font-size: 0.9rem; color: #fff;">2. Location & Livestock Census</strong>
+          </div>
+
+          <div>
+            <label class="form-label" for="f_phone">Contact Phone (10 digits) *</label>
+            <input type="tel" id="f_phone" name="phone" class="form-control" style="width: 100%;" placeholder="98XXXXXXXX" pattern="[0-9]{10}" required>
+            <div class="form-helper">Stored securely; masked publicly.</div>
+          </div>
+
+          <div>
+            <label class="form-label" for="f_village">Village / Settlement *</label>
+            <input type="text" id="f_village" name="village" class="form-control" style="width: 100%;" placeholder="e.g. Salmora" required>
+          </div>
+
+          <div>
+            <label class="form-label" for="f_type">Livestock Category</label>
+            <select id="f_type" name="livestock_type" class="form-select" style="width: 100%;">
+              <option value="Cattle">Cattle (Cows / Bulls)</option>
+              <option value="Buffalo">Buffalo</option>
+              <option value="Mixed">Mixed (Cattle & Buffalo)</option>
+              <option value="Goat/Sheep">Goat / Sheep</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="form-label" for="input_cattle_count">Cattle Count</label>
+            <input type="number" id="input_cattle_count" name="cattle_count" class="form-control" style="width: 100%;" min="0" value="0">
+          </div>
+
+          <div>
+            <label class="form-label" for="input_buffalo_count">Buffalo Count</label>
+            <input type="number" id="input_buffalo_count" name="buffalo_count" class="form-control" style="width: 100%;" min="0" value="0">
+          </div>
+
+          <div>
+            <label class="form-label" for="input_other_count">Other Animals</label>
+            <input type="number" id="input_other_count" name="other_count" class="form-control" style="width: 100%;" min="0" value="0">
+          </div>
+
+          <div class="form-group-full" style="background: var(--bg-surface); padding: 10px 14px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color);">
+            <span style="font-size: 0.85rem; font-weight: 600;">Total Livestock to Evacuate:</span>
+            <span id="display_total_animals" style="font-size: 1.25rem; font-weight: 800; color: var(--accent-amber-light);">0</span>
+          </div>
+
+          <div class="form-group-full">
+            <label class="form-label" for="f_needs">Special Risk Needs (Gestation, Calves, Injuries, Water Level)</label>
+            <textarea id="f_needs" name="special_needs" class="form-control" style="width: 100%;" rows="2" placeholder="e.g. 2 pregnant cows, water 2 feet high near cattle shed, young calf"></textarea>
+          </div>
+
+          <div>
+            <label class="form-label" for="f_lat">Latitude (Optional)</label>
+            <input type="text" id="f_lat" name="latitude" class="form-control" style="width: 100%;" placeholder="26.9165">
+          </div>
+
+          <div>
+            <label class="form-label" for="f_lng">Longitude (Optional)</label>
+            <input type="text" id="f_lng" name="longitude" class="form-control" style="width: 100%;" placeholder="94.2230">
+          </div>
+
+          <div class="form-group-full">
+            <button type="button" class="btn btn-sm btn-outline btn-autofill-gps" data-lat-id="f_lat" data-lng-id="f_lng" style="width: 100%;">
+              📍 Autofill with Realistic GPS Coordinates
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 12px;">
+          <a href="{{ url_for('login') }}" class="btn btn-outline">Back to Login</a>
+          <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 700;">
+            Complete Farmer Registration
+          </button>
+        </div>
+      </form>
+    </div>
+  {% endif %}
+
+  <!-- Back to Login Link -->
+  <div style="text-align: center; margin-top: 20px; font-size: 0.88rem; color: var(--text-secondary);">
+    Already have an account? <a href="{{ url_for('login') }}" style="font-weight: 700; color: var(--accent-blue-light);">Sign In Here →</a>
+  </div>
+
+</div>
+{% endblock %}

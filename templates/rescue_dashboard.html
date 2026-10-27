@@ -1,0 +1,589 @@
+{% extends "base.html" %}
+
+{% block title %}Rescue Team Dashboard — JEEVANPATH Disaster Command{% endblock %}
+
+{% block content %}
+<div class="rescue-dashboard-container" style="max-width: 1300px; margin: 0 auto; padding-bottom: 40px;">
+
+  <!-- Page Header -->
+  <div class="page-header" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px 28px; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+          <span style="font-size: 1.8rem;">🛡️</span>
+          <h2 style="margin: 0; font-size: 1.6rem; font-weight: 800; color: #fff;">
+            Disaster Coordination Cell — Command Dashboard
+          </h2>
+          <span class="badge badge-critical" style="font-size: 0.72rem;">Authorized Rescue Team</span>
+        </div>
+        <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">
+          Coordinator: <strong>{{ current_user.full_name }} ({{ current_user.username }})</strong> | 
+          Operations: <strong>Live Multi-Village Dispatch & Shelter Balancing</strong>
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-sm btn-danger" onclick="document.getElementById('newAlertModal').style.display='block';">
+          🚨 Broadcast Disaster Alert
+        </button>
+        <a href="{{ url_for('coordinate') }}" class="btn btn-sm btn-primary">
+          🎯 Operations Board
+        </a>
+        <a href="{{ url_for('map_view') }}" class="btn btn-sm btn-outline" style="border-color: #38bdf8; color: #7dd3fc;">
+          🗺️ Tactical Map
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8 Core Metrics Cards Grid -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 28px;">
+    <div class="stat-card" style="padding: 16px;">
+      <div class="stat-value" style="font-size: 1.6rem; color: #38bdf8;">{{ stats.total_farms }}</div>
+      <div class="stat-label" style="font-size: 0.78rem;">Registered Farms</div>
+      <div class="stat-sub" style="font-size: 0.7rem;">Active Herd Records</div>
+    </div>
+
+    <div class="stat-card" style="padding: 16px;">
+      <div class="stat-value" style="font-size: 1.6rem; color: #60a5fa;">{{ stats.total_animals }}</div>
+      <div class="stat-label" style="font-size: 0.78rem;">Livestock Count</div>
+      <div class="stat-sub" style="font-size: 0.7rem;">{{ stats.cattle_count }} Cattle • {{ stats.buffalo_count }} Buffalo</div>
+    </div>
+
+    <div class="stat-card" style="padding: 16px;">
+      <div class="stat-value" style="font-size: 1.6rem; color: #f87171;">{{ stats.active_alerts }}</div>
+      <div class="stat-label" style="font-size: 0.78rem;">Active Alerts</div>
+      <div class="stat-sub" style="font-size: 0.7rem;">River Floods & Dykes</div>
+    </div>
+
+    <div class="stat-card" style="padding: 16px;">
+      <div class="stat-value" style="font-size: 1.6rem; color: #fbbf24;">{{ pending_requests_count }}</div>
+      <div class="stat-label" style="font-size: 0.78rem;">Pending Requests</div>
+      <div class="stat-sub" style="font-size: 0.7rem;">Awaiting verification/dispatch</div>
+    </div>
+
+    <div class="stat-card" style="padding: 16px;">
+      <div class="stat-value" style="font-size: 1.6rem; color: #f97316;">{{ ongoing_rescues_count }}</div>
+      <div class="stat-label" style="font-size: 0.78rem;">Ongoing Rescues</div>
+      <div class="stat-sub" style="font-size: 0.7rem;">Teams in Transit</div>
+    </div>
+
+    <div class="stat-card" style="padding: 16px;">
+      <div class="stat-value" style="font-size: 1.6rem; color: #34d399;">{{ rescued_animals_count }}</div>
+      <div class="stat-label" style="font-size: 0.78rem;">Animals Rescued</div>
+      <div class="stat-sub" style="font-size: 0.7rem;">Confirmed in Shelters</div>
+    </div>
+
+    <div class="stat-card" style="padding: 16px;">
+      <div class="stat-value" style="font-size: 1.6rem; color: #a78bfa;">{{ available_volunteers|length }}</div>
+      <div class="stat-label" style="font-size: 0.78rem;">Available Volunteers</div>
+      <div class="stat-sub" style="font-size: 0.7rem;">Boats & Tractors Ready</div>
+    </div>
+
+    <div class="stat-card" style="padding: 16px;">
+      <div class="stat-value" style="font-size: 1.6rem; color: #10b981;">{{ stats.shelter_capacity_free }}</div>
+      <div class="stat-label" style="font-size: 0.78rem;">Shelter Vacancy</div>
+      <div class="stat-sub" style="font-size: 0.7rem;">{{ stats.shelters_count }} Safe High Pens</div>
+    </div>
+  </div>
+
+  <!-- Coverage & Shortage Analysis Section (Requirement 5) -->
+  <div class="card" style="border: 1px solid var(--border-color); background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)); padding: 22px; margin-bottom: 28px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div>
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+          <span>🔍</span> Spatial Coverage & Resource Shortage Analysis
+        </h3>
+        <p style="margin: 2px 0 0; font-size: 0.82rem; color: var(--text-secondary);">
+          Automated analysis identifying isolated villages lacking transport, shelter bottlenecks, and aid deficits:
+        </p>
+      </div>
+      <span class="badge badge-normal" style="font-size: 0.7rem;">Real-Time DB Analytics</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+      
+      <!-- Deficit 1: Uncovered Villages -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-left: 4px solid #ef4444; border-radius: var(--radius-sm); padding: 14px;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #f87171; text-transform: uppercase; margin-bottom: 6px;">
+          ⚠️ Villages Without Active Transport Coverage
+        </div>
+        {% if coverage.uncovered_villages and coverage.uncovered_villages|length > 0 %}
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            {% for uv in coverage.uncovered_villages %}
+              <div style="font-size: 0.82rem; color: #fff; display: flex; justify-content: space-between;">
+                <span>• <strong>{{ uv.village }}</strong></span>
+                <span style="color: #fca5a5;">{{ uv.farm_count }} farms ({{ uv.total_animals }} animals)</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="font-size: 0.82rem; color: #34d399;">
+            ✓ All villages with pending rescue needs currently have volunteer units stationed or nearby.
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Deficit 2: Transport Capacity vs Needs -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-left: 4px solid #f59e0b; border-radius: var(--radius-sm); padding: 14px;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #fbbf24; text-transform: uppercase; margin-bottom: 6px;">
+          🚛 Transport Capacity Deficit
+        </div>
+        <div style="font-size: 0.85rem; color: #fff;">
+          Pending Evacuation Needs: <strong>{{ coverage.pending_animals }} animals</strong>
+        </div>
+        <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+          Available Vehicle Capacity: <strong>{{ coverage.available_transport }} slots</strong>
+        </div>
+        {% if coverage.transport_deficit > 0 %}
+          <div style="font-size: 0.82rem; color: #f87171; font-weight: 700; margin-top: 6px;">
+            🚨 Net Transport Shortage: {{ coverage.transport_deficit }} animals need extra boats/trucks!
+          </div>
+        {% else %}
+          <div style="font-size: 0.82rem; color: #34d399; margin-top: 6px;">
+            ✓ Sufficient volunteer transport capacity available for active pending requests.
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Deficit 3: Shelter Critical Capacities -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-left: 4px solid #3b82f6; border-radius: var(--radius-sm); padding: 14px;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #60a5fa; text-transform: uppercase; margin-bottom: 6px;">
+          🏠 High-Capacity Shelters (Near Limit)
+        </div>
+        {% if coverage.critical_shelters and coverage.critical_shelters|length > 0 %}
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            {% for cs in coverage.critical_shelters %}
+              <div style="font-size: 0.8rem; color: #fff; display: flex; justify-content: space-between;">
+                <span>{{ cs.name }}</span>
+                <span style="color: {% if cs.pct_occupied >= 90 %}#f87171{% else %}#fbbf24{% endif %}; font-weight: 600;">
+                  {{ cs.pct_occupied }}% ({{ cs.remaining }} left)
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="font-size: 0.82rem; color: #34d399;">
+            ✓ All shelters have adequate vacancy (>25% remaining space).
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Deficit 4: Fodder & Water Supply Units -->
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-left: 4px solid #10b981; border-radius: var(--radius-sm); padding: 14px;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #34d399; text-transform: uppercase; margin-bottom: 6px;">
+          🌾 Emergency Fodder & Medical Stockpiles
+        </div>
+        <div style="font-size: 0.82rem; color: #fff;">
+          Available Fodder Units: <strong>{{ coverage.fodder_available }} units</strong>
+        </div>
+        <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+          Water Supply Teams: <strong>{{ coverage.water_available }} active</strong>
+        </div>
+        <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+          Mobile Vet Response Units: <strong>{{ coverage.vet_available }} on standby</strong>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Split Grid: Requests Prioritization & Alert Management -->
+  <div style="display: grid; grid-template-columns: 1.6fr 1.1fr; gap: 28px; margin-bottom: 32px;">
+
+    <!-- Left: Rescue Requests Management & Dispatch Queue -->
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+          <span>🚨</span> Rescue Requests Prioritization & Dispatch
+        </h3>
+        <span class="badge badge-normal" style="font-size: 0.72rem;">{{ requests|length }} Total Herds</span>
+      </div>
+
+      <!-- Filter Controls Bar -->
+      <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 16px;">
+        <form method="GET" action="{{ url_for('rescue_dashboard') }}" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <div style="flex: 1; min-width: 130px;">
+            <select name="village" class="form-control" style="width: 100%; font-size: 0.82rem; padding: 6px 10px;">
+              <option value="">All Villages</option>
+              {% for v in villages %}
+                <option value="{{ v }}" {% if selected_village == v %}selected{% endif %}>{{ v }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div style="flex: 1; min-width: 130px;">
+            <select name="urgency" class="form-control" style="width: 100%; font-size: 0.82rem; padding: 6px 10px;">
+              <option value="">All Urgencies</option>
+              <option value="Critical" {% if selected_urgency == 'Critical' %}selected{% endif %}>🚨 Critical</option>
+              <option value="High" {% if selected_urgency == 'High' %}selected{% endif %}>⚠️ High</option>
+              <option value="Normal" {% if selected_urgency == 'Normal' %}selected{% endif %}>ℹ️ Normal</option>
+            </select>
+          </div>
+
+          <div style="flex: 1; min-width: 140px;">
+            <select name="status" class="form-control" style="width: 100%; font-size: 0.82rem; padding: 6px 10px;">
+              <option value="">All Statuses</option>
+              <option value="Requested" {% if selected_status == 'Requested' %}selected{% endif %}>Requested</option>
+              <option value="Verified" {% if selected_status == 'Verified' %}selected{% endif %}>Verified</option>
+              <option value="In Progress" {% if selected_status == 'In Progress' %}selected{% endif %}>In Progress</option>
+              <option value="Safe in Shelter" {% if selected_status == 'Safe in Shelter' %}selected{% endif %}>Safe in Shelter</option>
+              <option value="Cancelled" {% if selected_status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-sm btn-primary" style="padding: 6px 12px;">Filter</button>
+          <a href="{{ url_for('rescue_dashboard') }}" class="btn btn-sm btn-outline" style="padding: 6px 10px;">Reset</a>
+        </form>
+      </div>
+
+      <!-- Requests List -->
+      {% if requests and requests|length > 0 %}
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          {% for r in requests %}
+            <div class="card" style="border: 1px solid var(--border-color); border-left: 4px solid {% if r.priority == 'Critical' %}#ef4444{% elif r.priority == 'High' %}#f59e0b{% elif r.rescue_status in ('Safe in Shelter', 'Completed') %}#10b981{% else %}#3b82f6{% endif %}; padding: 16px 20px;">
+              
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px;">
+                <div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="badge {% if r.priority == 'Critical' %}badge-critical{% elif r.priority == 'High' %}badge-high{% else %}badge-normal{% endif %}" style="font-size: 0.68rem;">
+                      {{ r.priority }}
+                    </span>
+                    <span class="badge {% if r.rescue_status in ('Safe in Shelter', 'Completed') %}badge-rescued{% elif r.rescue_status == 'In Progress' %}badge-critical{% elif r.rescue_status == 'Verified' %}badge-high{% else %}badge-pending{% endif %}" style="font-size: 0.68rem;">
+                      {{ r.rescue_status }}
+                    </span>
+                    <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #fff;">
+                      {{ r.name }}
+                    </h4>
+                  </div>
+                  <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 3px;">
+                    Village: <strong>{{ r.village }}</strong> | 
+                    Animals: <strong>{{ r.animal_count }} head</strong> ({{ r.cattle_count }} Cattle, {{ r.buffalo_count }} Buffalo) | 
+                    Contact: <strong style="color: #93c5fd;">{{ r.phone }}</strong>
+                  </div>
+                </div>
+
+                <!-- Verification & Dispatch Action Buttons -->
+                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                  {% if r.rescue_status == 'Requested' or r.rescue_status == 'Pending' %}
+                    <form action="{{ url_for('rescue_dashboard') }}" method="POST" style="display: inline;">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                      <input type="hidden" name="action" value="verify_request">
+                      <input type="hidden" name="farmer_id" value="{{ r.id }}">
+                      <button type="submit" class="btn btn-sm btn-outline" style="border-color: #f59e0b; color: #fbbf24; font-size: 0.72rem; padding: 4px 10px;">
+                        ✓ Verify
+                      </button>
+                    </form>
+                  {% endif %}
+
+                  {% if r.rescue_status not in ('Safe in Shelter', 'Completed', 'Cancelled') %}
+                    <button type="button" class="btn btn-sm btn-primary" style="font-size: 0.75rem; padding: 5px 12px; font-weight: 700;" onclick="openDispatchModal('{{ r.id }}', '{{ r.name|replace("'", "") }}', '{{ r.village|replace("'", "") }}', '{{ r.animal_count }}');">
+                      🚀 Dispatch Team
+                    </button>
+                  {% endif %}
+                </div>
+              </div>
+
+              <!-- Special Needs / Flood Notes -->
+              {% if r.special_needs or r.request_notes %}
+                <div style="background: rgba(239, 68, 68, 0.08); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 0.78rem; color: #fca5a5; margin-top: 6px;">
+                  <strong>Condition:</strong> {{ r.special_needs or r.request_notes }}
+                </div>
+              {% endif %}
+
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card" style="text-align: center; padding: 32px; border: 1px dashed var(--border-color);">
+          <div style="font-size: 2rem; margin-bottom: 8px;">✓</div>
+          <h4 style="color: #fff; margin-bottom: 4px;">No Requests Matching Criteria</h4>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">Adjust the filters above to see other requests.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Right: Disaster Alerts Management -->
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+          <span>🚨</span> Disaster Alerts Management
+        </h3>
+        <button type="button" class="btn btn-sm btn-danger" style="font-size: 0.75rem;" onclick="document.getElementById('newAlertModal').style.display='block';">
+          + Issue Alert
+        </button>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        {% for a in alerts %}
+          <div class="card" style="border: 1px solid var(--border-color); border-left: 4px solid {% if a.status == 'Resolved' %}#64748b{% elif a.severity == 'Critical' %}#ef4444{% elif a.severity == 'High' %}#f59e0b{% else %}#3b82f6{% endif %}; padding: 16px;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+              <div>
+                <span class="badge {% if a.severity == 'Critical' %}badge-critical{% elif a.severity == 'High' %}badge-high{% else %}badge-normal{% endif %}" style="font-size: 0.65rem;">
+                  {{ a.severity }}
+                </span>
+                <span class="badge {% if a.verification_status == 'Verified' %}badge-rescued{% else %}badge-pending{% endif %}" style="font-size: 0.65rem;">
+                  {{ a.verification_status or 'Verified' }}
+                </span>
+                <span class="badge {% if a.status == 'Active' %}badge-critical{% else %}badge-normal{% endif %}" style="font-size: 0.65rem;">
+                  {{ a.status }}
+                </span>
+                <h4 style="color: #fff; font-size: 0.98rem; font-weight: 700; margin: 4px 0 2px;">
+                  {{ a.title }}
+                </h4>
+              </div>
+
+              <!-- Quick Alert Actions -->
+              <div style="display: flex; gap: 4px;">
+                {% if a.status == 'Active' %}
+                  <form action="{{ url_for('rescue_dashboard') }}" method="POST" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="action" value="resolve_alert">
+                    <input type="hidden" name="alert_id" value="{{ a.id }}">
+                    <button type="submit" class="btn btn-sm btn-outline" style="font-size: 0.68rem; padding: 2px 6px;" title="Resolve alert">
+                      ✓ Resolve
+                    </button>
+                  </form>
+                {% endif %}
+
+                <form action="{{ url_for('rescue_dashboard') }}" method="POST" style="display: inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="action" value="verify_alert">
+                  <input type="hidden" name="alert_id" value="{{ a.id }}">
+                  <input type="hidden" name="verification_status" value="{% if a.verification_status == 'Verified' %}Unverified{% else %}Verified{% endif %}">
+                  <button type="submit" class="btn btn-sm btn-outline" style="font-size: 0.68rem; padding: 2px 6px;" title="Toggle verification">
+                    {% if a.verification_status == 'Verified' %}Unverify{% else %}Verify{% endif %}
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 6px 0 8px; line-height: 1.4;">
+              {{ a.description }}
+            </p>
+
+            <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
+              <span>📍 {{ a.affected_area }}</span>
+              <span>Source: <strong>{{ a.source or a.issued_by }}</strong></span>
+            </div>
+
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Operational Activity Audit Log (Requirement 5) -->
+  <div class="card" style="border: 1px solid var(--border-color); padding: 22px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px;">
+        <span>📜</span> System Operations & Activity Audit Log
+      </h3>
+      <span class="badge badge-normal" style="font-size: 0.7rem;">Automated Audit Trail</span>
+    </div>
+
+    <div style="max-height: 320px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
+        <thead style="background: var(--bg-surface); position: sticky; top: 0; border-bottom: 1px solid var(--border-color);">
+          <tr>
+            <th style="padding: 10px 12px; color: var(--text-secondary);">Timestamp</th>
+            <th style="padding: 10px 12px; color: var(--text-secondary);">User / Role</th>
+            <th style="padding: 10px 12px; color: var(--text-secondary);">Action</th>
+            <th style="padding: 10px 12px; color: var(--text-secondary);">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if activity_logs and activity_logs|length > 0 %}
+            {% for log in activity_logs %}
+              <tr style="border-bottom: 1px solid var(--border-color);">
+                <td style="padding: 8px 12px; color: var(--text-muted); font-size: 0.75rem; white-space: nowrap;">
+                  {{ log.timestamp[:19] }}
+                </td>
+                <td style="padding: 8px 12px; white-space: nowrap;">
+                  <strong style="color: #fff;">{{ log.username }}</strong>
+                  <span class="badge badge-normal" style="font-size: 0.65rem; margin-left: 4px;">{{ log.role }}</span>
+                </td>
+                <td style="padding: 8px 12px; font-weight: 600; color: #38bdf8; white-space: nowrap;">
+                  {{ log.action }}
+                </td>
+                <td style="padding: 8px 12px; color: var(--text-secondary);">
+                  {{ log.details }}
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">
+                No operational activity recorded yet.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal 1: Assign Rescue Team (With Overcapacity Prevention) -->
+<div id="dispatchModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto; padding: 20px;">
+  <div class="card" style="max-width: 520px; margin: 40px auto; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); padding: 28px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #fff;">
+        🚀 Assign Rescue Team & Shelter
+      </h3>
+      <button type="button" style="background: none; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer;" onclick="document.getElementById('dispatchModal').style.display='none';">✕</button>
+    </div>
+
+    <div style="background: var(--bg-surface); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.85rem; margin-bottom: 18px;">
+      Farm Target: <strong id="dispFarmerName" style="color: #fff;"></strong> (<span id="dispFarmerVillage"></span>)<br>
+      Animals Requiring Shelter: <strong id="dispFarmerCount" style="color: #38bdf8;"></strong>
+    </div>
+
+    <form action="{{ url_for('rescue_dashboard') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="assign_team">
+      <input type="hidden" id="dispFarmerId" name="farmer_id" value="">
+
+      <!-- Select Available Volunteer Vehicle -->
+      <div style="margin-bottom: 16px;">
+        <label for="disp_vol" class="form-label" style="font-weight: 600; font-size: 0.85rem;">
+          Select Available Volunteer / Transport Unit *
+        </label>
+        <select id="disp_vol" name="volunteer_id" class="form-control" required style="width: 100%;">
+          <option value="">-- Choose Available Volunteer --</option>
+          {% for v in available_volunteers %}
+            <option value="{{ v.id }}">
+              {{ v.name }} — {{ v.resource_type }} (Cap: {{ v.capacity }} animals) [{{ v.village }}]
+            </option>
+          {% endfor %}
+        </select>
+        <small style="color: var(--text-muted); font-size: 0.72rem;">Only currently Available responders are selectable.</small>
+      </div>
+
+      <!-- Select Safe Shelter (Capacity Check) -->
+      <div style="margin-bottom: 16px;">
+        <label for="disp_shelter" class="form-label" style="font-weight: 600; font-size: 0.85rem;">
+          Select Destination Safe Shelter *
+        </label>
+        <select id="disp_shelter" name="shelter_id" class="form-control" required style="width: 100%;">
+          <option value="">-- Choose Safe Shelter --</option>
+          {% for s in available_shelters %}
+            <option value="{{ s.id }}">
+              {{ s.name }} ({{ s.village }}) — Free: {{ s.total_capacity - s.occupied_capacity }} / {{ s.total_capacity }} slots
+            </option>
+          {% endfor %}
+        </select>
+        <small style="color: var(--text-muted); font-size: 0.72rem;">Overcapacity assignments are prevented by backend verification.</small>
+      </div>
+
+      <!-- Coordinator Instructions -->
+      <div style="margin-bottom: 20px;">
+        <label for="disp_notes" class="form-label" style="font-weight: 600; font-size: 0.85rem;">
+          Coordinator Dispatch Instructions
+        </label>
+        <textarea id="disp_notes" name="notes" class="form-control" rows="2" style="width: 100%;" placeholder="e.g. Approach via Kamalabari dyke road, tether calves first, transfer directly to high pen ground."></textarea>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button type="submit" class="btn btn-primary" style="flex: 1; padding: 10px; font-weight: 700;">
+          Confirm & Deploy Team
+        </button>
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('dispatchModal').style.display='none';">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal 2: Create Disaster Alert -->
+<div id="newAlertModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; overflow-y: auto; padding: 20px;">
+  <div class="card" style="max-width: 540px; margin: 40px auto; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); padding: 28px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+      <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #fff;">
+        🚨 Broadcast Verified Disaster Alert
+      </h3>
+      <button type="button" style="background: none; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer;" onclick="document.getElementById('newAlertModal').style.display='none';">✕</button>
+    </div>
+
+    <form action="{{ url_for('rescue_dashboard') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="create_alert">
+
+      <div style="margin-bottom: 12px;">
+        <label for="al_title" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Alert Title *</label>
+        <input type="text" id="al_title" name="title" class="form-control" placeholder="e.g. Brahmaputra Surge — Southern Dyke Overtopping" required style="width: 100%;">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div>
+          <label for="al_type" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Disaster Type</label>
+          <select id="al_type" name="disaster_type" class="form-control" style="width: 100%;">
+            <option value="Flood">Flood Surge</option>
+            <option value="River Breach">Embankment Breach</option>
+            <option value="Waterlogging">Subansiri Waterlogging</option>
+            <option value="Cyclone/Storm">Severe Storm / High Winds</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="al_sev" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Severity</label>
+          <select id="al_sev" name="severity" class="form-control" style="width: 100%;">
+            <option value="Critical">🚨 Critical</option>
+            <option value="High" selected>⚠️ High</option>
+            <option value="Medium">ℹ️ Medium</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label for="al_area" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Affected Villages (Comma Separated) *</label>
+        <input type="text" id="al_area" name="affected_area" class="form-control" placeholder="e.g. Salmora, Rawanapar, Kamalabari" required style="width: 100%;">
+        <small style="color: var(--text-muted); font-size: 0.72rem;">Herds in these villages are automatically escalated in priority.</small>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+        <div>
+          <label for="al_src" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Source</label>
+          <input type="text" id="al_src" name="source" class="form-control" value="DDMA Majuli Flood Cell" style="width: 100%;">
+        </div>
+        <div>
+          <label for="al_ver" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Verification</label>
+          <select id="al_ver" name="verification_status" class="form-control" style="width: 100%;">
+            <option value="Verified">Verified</option>
+            <option value="Under Review">Under Review</option>
+            <option value="Unverified">Unverified</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label for="al_desc" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Situation Description *</label>
+        <textarea id="al_desc" name="description" class="form-control" rows="3" placeholder="Details of water ingress, threat timeline, and transport recommendations..." required style="width: 100%;"></textarea>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button type="submit" class="btn btn-danger" style="flex: 1; padding: 10px; font-weight: 700;">
+          Broadcast Alert
+        </button>
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('newAlertModal').style.display='none';">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openDispatchModal(id, name, village, count) {
+  document.getElementById('dispFarmerId').value = id;
+  document.getElementById('dispFarmerName').textContent = name;
+  document.getElementById('dispFarmerVillage').textContent = village;
+  document.getElementById('dispFarmerCount').textContent = count + ' animals';
+  document.getElementById('dispatchModal').style.display = 'block';
+}
+</script>
+{% endblock %}

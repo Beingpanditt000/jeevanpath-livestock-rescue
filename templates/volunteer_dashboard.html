@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+
+{% block title %}Volunteer Dashboard — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div class="volunteer-dashboard-container" style="max-width: 1200px; margin: 0 auto; padding-bottom: 40px;">
+
+  <!-- Page Header -->
+  <div class="page-header" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px 28px; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+          <span style="font-size: 1.8rem;">🚚</span>
+          <h2 style="margin: 0; font-size: 1.6rem; font-weight: 800; color: #fff;">
+            Volunteer Responder Portal
+          </h2>
+          <span class="badge badge-rescued" style="font-size: 0.72rem;">Volunteer Role</span>
+        </div>
+        <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">
+          Responder: <strong>{{ volunteer.name if volunteer else current_user.full_name }}</strong> | 
+          Organization: <strong>{{ volunteer.organization if volunteer else 'Independent' }}</strong> | 
+          Base: <strong>{{ volunteer.village if volunteer else current_user.village }}</strong>
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <a href="{{ url_for('change_password') }}" class="btn btn-sm btn-outline">
+          🔑 Change Password
+        </a>
+        <a href="#resourceSettings" class="btn btn-sm btn-outline" style="border-color: #34d399; color: #6ee7b7;">
+          ⚙️ Manage Resource
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 Overview Metric Cards -->
+  <div class="stats-grid" style="margin-bottom: 28px;">
+    <!-- Card 1: Available Resources -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">🚛</div>
+      <div class="stat-content">
+        <div class="stat-value">{{ volunteer.capacity if volunteer else 0 }}</div>
+        <div class="stat-label">Transport Capacity</div>
+        <div class="stat-sub">{{ volunteer.resource_type if volunteer else 'General Aid' }}</div>
+      </div>
+    </div>
+
+    <!-- Card 2: Assigned Tasks -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">📋</div>
+      <div class="stat-content">
+        <div class="stat-value">{{ active_tasks_count }}</div>
+        <div class="stat-label">Active Assigned Tasks</div>
+        <div class="stat-sub">Awaiting confirmation or in transit</div>
+      </div>
+    </div>
+
+    <!-- Card 3: Completed Rescues -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">🏆</div>
+      <div class="stat-content">
+        <div class="stat-value">{{ completed_tasks_count }}</div>
+        <div class="stat-label">Completed Evacuations</div>
+        <div class="stat-sub">Livestock delivered to shelters</div>
+      </div>
+    </div>
+
+    <!-- Card 4: Current Availability -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #a78bfa;">⚡</div>
+      <div class="stat-content">
+        <div class="stat-value" style="font-size: 1.35rem; margin-top: 4px;">
+          {% if volunteer and volunteer.availability == 'Available' %}
+            <span class="badge badge-rescued">Available</span>
+          {% elif volunteer and volunteer.availability == 'Busy' %}
+            <span class="badge badge-pending">Busy</span>
+          {% elif volunteer and volunteer.availability == 'Deployed' %}
+            <span class="badge badge-critical">Deployed</span>
+          {% else %}
+            <span class="badge badge-normal" style="background: #475569;">Unavailable</span>
+          {% endif %}
+        </div>
+        <div class="stat-label">Current Availability</div>
+        <div class="stat-sub">Disaster cell dispatch status</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Availability Status Controls -->
+  <div class="card" style="border: 1px solid var(--border-color); padding: 18px 24px; margin-bottom: 28px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+    <div>
+      <h4 style="margin: 0; font-size: 1rem; color: #fff; font-weight: 700;">
+        Deployment Availability Control
+      </h4>
+      <p style="margin: 2px 0 0; font-size: 0.82rem; color: var(--text-secondary);">
+        Set your availability status so rescue coordinators know if your vehicle or equipment is ready for dispatch:
+      </p>
+    </div>
+
+    <form action="{{ url_for('volunteer_dashboard') }}" method="POST" style="display: flex; gap: 8px;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="set_availability">
+
+      <button type="submit" name="availability" value="Available" class="btn btn-sm {% if volunteer and volunteer.availability == 'Available' %}btn-success{% else %}btn-outline{% endif %}" style="padding: 7px 14px;">
+        🟢 Available for Rescue
+      </button>
+
+      <button type="submit" name="availability" value="Busy" class="btn btn-sm {% if volunteer and volunteer.availability == 'Busy' %}btn-warning{% else %}btn-outline{% endif %}" style="padding: 7px 14px;">
+        🟡 Busy on Local Run
+      </button>
+
+      <button type="submit" name="availability" value="Unavailable" class="btn btn-sm {% if volunteer and volunteer.availability == 'Unavailable' %}btn-outline{% else %}btn-outline{% endif %}" style="padding: 7px 14px; border-color: #64748b; color: #94a3b8;">
+        ⚪ Offline / Unavailable
+      </button>
+    </form>
+  </div>
+
+  <!-- Main Content Grid: Assigned Tasks List & Resource Manager -->
+  <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 28px;">
+
+    <!-- Left: Assigned Rescue Tasks -->
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0; display: flex; align-items: center; gap: 8px;">
+          <span>📋</span> Assigned Rescue Operations
+        </h3>
+        <span class="badge badge-normal" style="font-size: 0.72rem;">{{ tasks|length }} Assigned Tasks</span>
+      </div>
+
+      {% if tasks and tasks|length > 0 %}
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+          {% for task in tasks %}
+            <div class="card" style="border: 1px solid var(--border-color); border-left: 4px solid {% if task.status == 'Completed' %}#10b981{% elif task.acceptance_status == 'Declined' %}#64748b{% elif task.status == 'In Progress' %}#ef4444{% else %}#f59e0b{% endif %}; padding: 22px;">
+              
+              <!-- Task Header -->
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+                <div>
+                  <span class="badge {% if task.urgency == 'Critical' %}badge-critical{% elif task.urgency == 'High' %}badge-high{% else %}badge-normal{% endif %}" style="font-size: 0.68rem; margin-right: 6px;">
+                    {{ task.urgency }} Priority
+                  </span>
+                  <span class="badge {% if task.status == 'Completed' %}badge-rescued{% elif task.acceptance_status == 'Declined' %}badge-normal{% elif task.status == 'In Progress' %}badge-critical{% else %}badge-pending{% endif %}" style="font-size: 0.68rem;">
+                    {{ task.status }} {% if task.acceptance_status == 'Pending' %}(Awaiting Confirmation){% endif %}
+                  </span>
+                  <h4 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin: 6px 0 2px;">
+                    Farm Rescue: {{ task.farmer_name }}
+                  </h4>
+                </div>
+
+                <div style="text-align: right; font-size: 0.78rem; color: var(--text-muted);">
+                  Assigned: {{ task.created_at[:16] }}
+                </div>
+              </div>
+
+              <!-- Pickup & Destination Grid -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: var(--bg-surface); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 14px; font-size: 0.85rem;">
+                
+                <!-- Pickup Point -->
+                <div>
+                  <div style="color: #38bdf8; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; margin-bottom: 4px;">
+                    📍 Pickup Location
+                  </div>
+                  <div style="color: #fff; font-weight: 600;">{{ task.farmer_village }}</div>
+                  <div style="color: var(--text-secondary); margin-top: 2px;">
+                    Animals: <strong>{{ task.animal_count }} head</strong> ({{ task.cattle_count }} Cattle, {{ task.buffalo_count }} Buffalo)
+                  </div>
+                  <div style="color: #93c5fd; margin-top: 4px;">
+                    📞 Farmer Contact: <a href="tel:{{ task.farmer_phone }}" style="color: #93c5fd; font-weight: 600;">{{ task.farmer_phone }}</a>
+                  </div>
+                </div>
+
+                <!-- Destination Shelter -->
+                <div>
+                  <div style="color: #34d399; font-weight: 700; text-transform: uppercase; font-size: 0.72rem; margin-bottom: 4px;">
+                    🏠 Destination Safe Shelter
+                  </div>
+                  <div style="color: #fff; font-weight: 600;">{{ task.shelter_name or 'Local High Ground' }}</div>
+                  <div style="color: var(--text-secondary); margin-top: 2px;">
+                    Village: {{ task.shelter_village or task.farmer_village }}
+                  </div>
+                  {% if task.shelter_contact %}
+                    <div style="color: #6ee7b7; margin-top: 4px;">
+                      👤 Contact: {{ task.shelter_contact }} ({{ task.shelter_phone }})
+                    </div>
+                  {% endif %}
+                </div>
+
+              </div>
+
+              <!-- Coordinator Instructions & Special Needs -->
+              {% if task.coordinator_instructions or task.notes or task.special_needs %}
+                <div style="background: rgba(2, 132, 199, 0.08); border-left: 3px solid #0284c7; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 0.82rem; color: #bae6fd; margin-bottom: 14px;">
+                  {% if task.coordinator_instructions %}
+                    <div><strong>Coordinator Instructions:</strong> {{ task.coordinator_instructions }}</div>
+                  {% endif %}
+                  {% if task.special_needs %}
+                    <div style="margin-top: 4px;"><strong>Special Livestock Condition:</strong> {{ task.special_needs }}</div>
+                  {% endif %}
+                </div>
+              {% endif %}
+
+              <!-- Action Controls based on task state -->
+              {% if task.status == 'Assigned' and task.acceptance_status == 'Pending' %}
+                
+                <!-- Accept or Decline Task Buttons -->
+                <div style="display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--border-color); padding-top: 14px;">
+                  <form action="{{ url_for('volunteer_dashboard') }}" method="POST" style="display: inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="action" value="accept_task">
+                    <input type="hidden" name="assignment_id" value="{{ task.id }}">
+                    <button type="submit" class="btn btn-sm btn-success" style="padding: 7px 16px; font-weight: 700;">
+                      ✓ Accept Mission
+                    </button>
+                  </form>
+
+                  <button type="button" class="btn btn-sm btn-outline" style="border-color: #ef4444; color: #fca5a5; padding: 7px 14px;" onclick="document.getElementById('declineModal_{{ task.id }}').style.display='block';">
+                    ✕ Decline Mission
+                  </button>
+                </div>
+
+                <!-- Decline Modal -->
+                <div id="declineModal_{{ task.id }}" style="display: none; margin-top: 12px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); padding: 14px;">
+                  <form action="{{ url_for('volunteer_dashboard') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="action" value="decline_task">
+                    <input type="hidden" name="assignment_id" value="{{ task.id }}">
+
+                    <label class="form-label" style="font-size: 0.82rem; font-weight: 600; color: #fca5a5;">
+                      Please provide a reason for declining this dispatch:
+                    </label>
+                    <input type="text" name="decline_reason" class="form-control" placeholder="e.g. Approach road submerged / Tractor mechanical issue" required style="width: 100%; margin-bottom: 8px; font-size: 0.85rem;">
+
+                    <div style="display: flex; gap: 8px;">
+                      <button type="submit" class="btn btn-sm btn-danger">Confirm Decline</button>
+                      <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('declineModal_{{ task.id }}').style.display='none';">Cancel</button>
+                    </div>
+                  </form>
+                </div>
+
+              {% elif task.status == 'In Progress' %}
+
+                <!-- Update Progress Form -->
+                <div style="border-top: 1px solid var(--border-color); padding-top: 14px;">
+                  <h5 style="color: #fff; font-size: 0.88rem; font-weight: 700; margin: 0 0 10px;">
+                    📝 Update Evacuation Progress
+                  </h5>
+
+                  <form action="{{ url_for('volunteer_dashboard') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="action" value="update_progress">
+                    <input type="hidden" name="assignment_id" value="{{ task.id }}">
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                      <div>
+                        <label class="form-label" style="font-size: 0.78rem;">Animals Collected from Farm</label>
+                        <input type="number" name="animals_collected" class="form-control" value="{{ task.animals_collected or task.animal_count }}" min="0" style="width: 100%;">
+                      </div>
+                      <div>
+                        <label class="form-label" style="font-size: 0.78rem;">Animals Delivered to Shelter</label>
+                        <input type="number" name="animals_delivered" class="form-control" value="{{ task.animals_delivered or task.animal_count }}" min="0" style="width: 100%;">
+                      </div>
+                    </div>
+
+                    <div style="margin-bottom: 12px;">
+                      <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #6ee7b7; cursor: pointer;">
+                        <input type="checkbox" name="is_completed" value="1" style="accent-color: #10b981; width: 16px; height: 16px;">
+                        <span>Mark Evacuation as <strong>COMPLETED</strong> (Animals safely penned in shelter)</span>
+                      </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-sm btn-success" style="padding: 7px 18px; font-weight: 700;">
+                      💾 Update Mission Progress
+                    </button>
+                  </form>
+                </div>
+
+              {% elif task.status == 'Completed' %}
+                
+                <div style="border-top: 1px solid var(--border-color); padding-top: 10px; font-size: 0.82rem; color: #34d399; display: flex; align-items: center; gap: 6px;">
+                  <span>✓</span> Successfully evacuated: <strong>{{ task.animals_delivered or task.animal_count }} animals</strong> safe in {{ task.shelter_name }}. Completed at {{ task.completed_at[:16] if task.completed_at else 'Verified' }}.
+                </div>
+
+              {% elif task.acceptance_status == 'Declined' %}
+
+                <div style="border-top: 1px solid var(--border-color); padding-top: 10px; font-size: 0.82rem; color: #94a3b8;">
+                  Declined with note: <em>"{{ task.decline_reason }}"</em>. Returned to coordination pool.
+                </div>
+
+              {% endif %}
+
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card" style="text-align: center; padding: 40px 20px; border: 1px dashed var(--border-color);">
+          <div style="font-size: 2.5rem; margin-bottom: 10px;">🚚</div>
+          <h4 style="color: #fff; margin-bottom: 6px;">No Active Dispatches Assigned</h4>
+          <p style="color: var(--text-secondary); font-size: 0.88rem; max-width: 440px; margin: 0 auto;">
+            You have no pending rescue tasks right now. Make sure your availability is set to <strong>Available</strong> above so the disaster coordination cell can match you with at-risk cattle herds nearby.
+          </p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Right: Manage Offered Resource & Equipment Details -->
+    <div id="resourceSettings">
+      <div class="card" style="border: 1px solid var(--border-color); padding: 22px;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0 0 16px; display: flex; align-items: center; gap: 8px;">
+          <span>⚙️</span> Manage Offered Resources
+        </h3>
+
+        <form action="{{ url_for('volunteer_dashboard') }}" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="action" value="update_resource">
+
+          <div style="margin-bottom: 12px;">
+            <label for="vr_org" class="form-label" style="font-size: 0.82rem; font-weight: 600;">Organization / Team</label>
+            <input type="text" id="vr_org" name="organization" class="form-control" value="{{ volunteer.organization if volunteer else 'Independent' }}" required style="width: 100%;">
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label for="vr_village" class="form-label" style="font-size: 0.82rem; font-weight: 600;">Base Station / Village</label>
+            <input type="text" id="vr_village" name="village" class="form-control" value="{{ volunteer.village if volunteer else current_user.village }}" required style="width: 100%;">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div>
+              <label for="vr_type" class="form-label" style="font-size: 0.82rem; font-weight: 600;">Primary Resource</label>
+              <select id="vr_type" name="resource_type" class="form-control" style="width: 100%;">
+                <option value="Vehicle" {% if volunteer and volunteer.resource_type == 'Vehicle' %}selected{% endif %}>Vehicle (Tractor / Truck)</option>
+                <option value="Boat" {% if volunteer and volunteer.resource_type == 'Boat' %}selected{% endif %}>Boat (Motorized / Flat-bottom)</option>
+                <option value="Fodder" {% if volunteer and volunteer.resource_type == 'Fodder' %}selected{% endif %}>Fodder Stockpile</option>
+                <option value="Water & First Aid" {% if volunteer and volunteer.resource_type == 'Water & First Aid' %}selected{% endif %}>Water & First Aid Unit</option>
+                <option value="Shelter Support" {% if volunteer and volunteer.resource_type == 'Shelter Support' %}selected{% endif %}>Shelter Yard Support</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="vr_cap" class="form-label" style="font-size: 0.82rem; font-weight: 600;">Transport Capacity</label>
+              <input type="number" id="vr_cap" name="capacity" class="form-control" value="{{ volunteer.capacity if volunteer else 6 }}" min="0" required style="width: 100%;">
+            </div>
+          </div>
+
+          <div style="margin-bottom: 14px;">
+            <label for="vr_details" class="form-label" style="font-size: 0.82rem; font-weight: 600;">Resource & Equipment Specifications</label>
+            <textarea id="vr_details" name="resource_details" class="form-control" rows="2" style="width: 100%;" placeholder="e.g. 45HP Mahindra tractor with high snorkel, cattle trailer, safety tether ropes.">{{ volunteer.resource_details if volunteer else '' }}</textarea>
+          </div>
+
+          <!-- Multi-Aid Checkbox Options -->
+          <div style="margin-bottom: 16px; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px;">
+            <div style="font-size: 0.8rem; font-weight: 700; color: #fff; margin-bottom: 8px;">
+              Additional Emergency Support Offered:
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; color: var(--text-secondary);">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" name="water_support" value="1" {% if volunteer and volunteer.water_support %}checked{% endif %} style="accent-color: #38bdf8;">
+                <span>💧 Portable Emergency Water Purification / Tanks</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" name="fodder_support" value="1" {% if volunteer and volunteer.fodder_support %}checked{% endif %} style="accent-color: #f59e0b;">
+                <span>🌾 Dry Straw / Fodder Bundles</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" name="medical_support" value="1" {% if volunteer and volunteer.medical_support %}checked{% endif %} style="accent-color: #ef4444;">
+                <span>🩺 Animal First Aid / Veterinary Trauma Kit</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" name="shelter_support" value="1" {% if volunteer and volunteer.shelter_support %}checked{% endif %} style="accent-color: #10b981;">
+                <span>🏠 High-Ground Yard / Temporary Pen Space</span>
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 10px; font-weight: 700; font-size: 0.9rem;">
+            💾 Save Resource Profile
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

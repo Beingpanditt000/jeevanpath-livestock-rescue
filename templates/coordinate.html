@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Rescue Operations & Coordination — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h2>🎯 Livestock Rescue Operations & Dispatch Command</h2>
+    <p>Coordinate emergency livestock evacuation by matching at-risk farms with available transport and safe shelters.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('map_view') }}" class="btn btn-outline">
+      🗺️ View Tactical Map
+    </a>
+  </div>
+</div>
+
+<!-- Key Mission Status Bar -->
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px;">
+  <div class="stat-card" style="--stat-color: #ef4444;">
+    <div class="stat-header">
+      <span class="stat-label">Needing Rescue</span>
+      <span class="stat-icon">🚨</span>
+    </div>
+    <div class="stat-value" style="color: #f87171;">{{ stats.pending_farms }}</div>
+    <div class="stat-subtext"><strong>{{ stats.pending_livestock }}</strong> animals at risk</div>
+  </div>
+
+  <div class="stat-card" style="--stat-color: #38bdf8;">
+    <div class="stat-header">
+      <span class="stat-label">In Evacuation</span>
+      <span class="stat-icon">🚚</span>
+    </div>
+    <div class="stat-value" style="color: #7dd3fc;">{{ stats.in_progress_farms }}</div>
+    <div class="stat-subtext">Teams deployed on ground</div>
+  </div>
+
+  <div class="stat-card" style="--stat-color: #10b981;">
+    <div class="stat-header">
+      <span class="stat-label">Safely Relocated</span>
+      <span class="stat-icon">✅</span>
+    </div>
+    <div class="stat-value" style="color: #6ee7b7;">{{ stats.rescued_farms }}</div>
+    <div class="stat-subtext">Secured in high pens/shelters</div>
+  </div>
+
+  <div class="stat-card" style="--stat-color: #fbbf24;">
+    <div class="stat-header">
+      <span class="stat-label">Available Vehicles</span>
+      <span class="stat-icon">🚜</span>
+    </div>
+    <div class="stat-value">{{ stats.available_vehicles }}</div>
+    <div class="stat-subtext">Capacity: {{ stats.total_vehicle_capacity }} animals</div>
+  </div>
+
+  <div class="stat-card" style="--stat-color: #a855f7;">
+    <div class="stat-header">
+      <span class="stat-label">Shelter Vacancy</span>
+      <span class="stat-icon">🏠</span>
+    </div>
+    <div class="stat-value">{{ stats.available_shelter_capacity }}</div>
+    <div class="stat-subtext">Safe slots open across {{ stats.total_shelters }} shelters</div>
+  </div>
+</div>
+
+<!-- Main Coordination Split Grid -->
+<div style="display: grid; grid-template-columns: 1.8fr 1.2fr; gap: 24px;">
+
+  <!-- Left Column: Rescue Workflows -->
+  <div>
+    <!-- Section 1: Pending At-Risk Livestock Queue -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span>⏳ At-Risk Farms Awaiting Dispatch ({{ pending_farmers|length }})</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        {% for f in pending_farmers %}
+          <div style="background: var(--bg-card-alt); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="flex: 1; min-width: 260px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <strong style="font-size: 1.05rem; color: #fff;">{{ f.name }}</strong>
+                {% if f.priority == 'Critical' %}
+                  <span class="badge badge-critical pulse-dot">CRITICAL</span>
+                {% elif f.priority == 'High' %}
+                  <span class="badge badge-high">HIGH</span>
+                {% else %}
+                  <span class="badge badge-normal">NORMAL</span>
+                {% endif %}
+              </div>
+              <div style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px;">
+                📍 Village: <strong>{{ f.village }}</strong> • Contact: 
+                {% if is_coordinator %}
+                  <span style="color: #38bdf8;">{{ f.phone }}</span>
+                {% else %}
+                  <span style="font-family: monospace;">{{ mask_phone(f.phone) }}</span>
+                {% endif %}
+              </div>
+              <div style="background: rgba(0,0,0,0.25); padding: 8px 10px; border-radius: var(--radius-sm); font-size: 0.8rem; border-left: 3px solid #ef4444;">
+                <div><strong>Animals:</strong> <span style="color: #fbbf24;">{{ f.animal_count }} Total</span> ({{ f.cattle_count }} Cattle, {{ f.buffalo_count }} Buffalo)</div>
+                {% if f.special_needs %}
+                  <div style="color: #fca5a5; margin-top: 2px;"><strong>Risk Factor:</strong> {{ f.special_needs }}</div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div>
+              <button type="button" class="btn btn-primary btn-open-dispatch" 
+                      data-farmer-id="{{ f.id }}" 
+                      data-farmer-name="{{ f.name }}" 
+                      data-animal-count="{{ f.animal_count }}"
+                      data-village="{{ f.village }}">
+                🚀 Assign & Dispatch Team
+              </button>
+            </div>
+          </div>
+        {% else %}
+          <div style="text-align: center; padding: 24px; color: #34d399; font-weight: 600;">
+            ✅ All registered farms have evacuation teams assigned or are safe in shelters!
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Section 2: Evacuations In Progress -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span>🚚 Evacuations In Progress ({{ in_progress_farmers|length }})</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        {% for f in in_progress_farmers %}
+          <div style="background: var(--bg-card-alt); border: 1px solid rgba(2, 132, 199, 0.3); border-radius: var(--radius-md); padding: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
+              <div>
+                <strong style="font-size: 1.05rem; color: #fff;">{{ f.name }} ({{ f.village }})</strong>
+                <span class="badge badge-in-progress" style="margin-left: 6px;">In Transit</span>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
+                  Livestock: <strong>{{ f.animal_count }} animals</strong>
+                </div>
+              </div>
+
+              <!-- Quick Status Transitions -->
+              <div style="display: flex; gap: 8px;">
+                <form action="{{ url_for('coordinate') }}" method="POST" style="display: inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="action" value="update_status">
+                  <input type="hidden" name="farmer_id" value="{{ f.id }}">
+                  <input type="hidden" name="new_status" value="Safe in Shelter">
+                  <button type="submit" class="btn btn-sm btn-success" title="Confirm animals have reached safe shelter safely">
+                    🏠 Confirm in Shelter
+                  </button>
+                </form>
+
+                <form action="{{ url_for('coordinate') }}" method="POST" style="display: inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="action" value="update_status">
+                  <input type="hidden" name="farmer_id" value="{{ f.id }}">
+                  <input type="hidden" name="new_status" value="Rescued">
+                  <button type="submit" class="btn btn-sm btn-outline" style="border-color: #34d399; color: #6ee7b7;">
+                    ✅ Rescued
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8rem; background: rgba(2, 132, 199, 0.08); padding: 8px 12px; border-radius: var(--radius-sm);">
+              <div>
+                <span style="color: var(--text-secondary);">Assigned Transport:</span><br>
+                <strong style="color: #7dd3fc;">{{ f.volunteer_name or 'Direct Rescue Unit' }}</strong>
+                {% if f.volunteer_phone and is_coordinator %}
+                  <span style="font-size: 0.75rem;">(📞 {{ f.volunteer_phone }})</span>
+                {% endif %}
+              </div>
+              <div>
+                <span style="color: var(--text-secondary);">Destination Shelter:</span><br>
+                <strong style="color: #a7f3d0;">{{ f.shelter_name or 'Designated High Ground' }}</strong>
+              </div>
+            </div>
+          </div>
+        {% else %}
+          <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+            No evacuations currently in progress. Dispatch a team above.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Resources & Safe Shelters Status -->
+  <div>
+    <!-- Safe Shelters Capacity Monitor -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          🏠 Safe Shelters Vacancy
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        {% for s in shelters %}
+          {% set occ = s.occupied_capacity %}
+          {% set tot = s.total_capacity %}
+          {% set free = tot - occ %}
+          {% set pct = (occ / tot * 100)|round|int if tot > 0 else 0 %}
+          <div style="background: var(--bg-card-alt); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 2px;">
+              <strong style="color: #fff;">{{ s.name }}</strong>
+              <span style="font-weight: 700; color: {% if free <= 5 %}#f87171{% else %}#34d399{% endif %};">
+                {{ free }} slots free
+              </span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;">
+              {{ s.village }} • {{ occ }}/{{ tot }} animals
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" style="width: {{ pct }}%; background: {% if pct > 85 %}#ef4444{% elif pct > 50 %}#f59e0b{% else %}#10b981{% endif %};"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Available Transport Units -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          🚜 Available Transport Vehicles
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        {% for v in available_volunteers %}
+          {% if v.resource_type == 'Vehicle' %}
+            <div style="background: var(--bg-card-alt); padding: 10px 12px; border-radius: var(--radius-sm); border-left: 3px solid #3b82f6; font-size: 0.82rem;">
+              <div style="display: flex; justify-content: space-between;">
+                <strong style="color: #fff;">{{ v.name }}</strong>
+                <span class="badge badge-rescued" style="font-size: 0.7rem;">Cap: {{ v.capacity }} animals</span>
+              </div>
+              <div style="color: var(--text-secondary); font-size: 0.75rem; margin-top: 2px;">
+                📍 {{ v.village }} • {{ v.resource_details or 'Ready for immediate dispatch' }}
+              </div>
+            </div>
+          {% endif %}
+        {% else %}
+          <p style="color: var(--text-muted); font-size: 0.8rem;">No vehicles registered.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================= 1-CLICK RESCUE DISPATCH MODAL ================= -->
+<div id="modal-dispatch-rescue" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">🚀 Dispatch Evacuation Team</h3>
+      <button type="button" class="modal-close" data-modal-close>✕</button>
+    </div>
+
+    <form action="{{ url_for('coordinate') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="assign">
+      <input type="hidden" id="dispatch_farmer_id" name="farmer_id" value="">
+
+      <!-- Farmer details summary prefilled -->
+      <div id="dispatch_farmer_info" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; font-size: 0.88rem; color: #fecaca;">
+        Loading farmer details...
+      </div>
+
+      <div class="form-grid">
+        <!-- Select Transport Volunteer -->
+        <div class="form-group-full">
+          <label class="form-label" for="select_volunteer">Assign Transport Vehicle / Volunteer Crew *</label>
+          <select id="select_volunteer" name="volunteer_id" class="form-select" style="width: 100%;" required>
+            <option value="">-- Choose Transport Unit --</option>
+            {% for v in available_volunteers %}
+              <option value="{{ v.id }}">
+                {{ v.name }} ({{ v.resource_type }} • Cap: {{ v.capacity }} animals • {{ v.village }})
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-helper">Volunteer status will automatically switch to 'Deployed'.</div>
+        </div>
+
+        <!-- Select Destination Shelter -->
+        <div class="form-group-full">
+          <label class="form-label" for="select_shelter">Select Safe Evacuation Shelter *</label>
+          <select id="select_shelter" name="shelter_id" class="form-select" style="width: 100%;" required>
+            <option value="">-- Choose Safe Shelter --</option>
+            {% for s in shelters %}
+              {% set free = s.total_capacity - s.occupied_capacity %}
+              <option value="{{ s.id }}" {% if free <= 0 %}disabled{% endif %}>
+                {{ s.name }} ({{ s.village }} — {{ free }} vacancies left)
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-helper">Shelter capacity will be updated atomically.</div>
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="dispatch_notes">Mission & Route Instructions</label>
+          <input type="text" id="dispatch_notes" name="notes" class="form-control" style="width: 100%;" placeholder="e.g. Approach from high dyke road, watch for 2 pregnant cows">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Confirm & Deploy Team</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

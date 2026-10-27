@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}GIS Disaster & Livestock Rescue Map — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 16px;">
+  <div class="page-title">
+    <h2>🗺️ Tactical GIS Disaster & Livestock Map</h2>
+    <p>Spatial situational awareness combining active hazard zones, at-risk cattle/buffalo clusters, mobile transport units, and safe high-ground shelters.</p>
+  </div>
+  <div style="display: flex; gap: 10px;">
+    <a href="{{ url_for('coordinate') }}" class="btn btn-primary">
+      🎯 Operations Board
+    </a>
+  </div>
+</div>
+
+<!-- Map View Wrapper -->
+<div class="map-page-wrapper">
+  
+  <!-- Map Canvas with Floating Interactive Controls -->
+  <div class="map-container">
+    <div id="leafletMap"></div>
+
+    <!-- Floating Interactive Legend & Layer Toggles -->
+    <div class="map-legend">
+      <div style="font-weight: 700; color: #fff; font-size: 0.85rem; margin-bottom: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px;">
+        📍 Map Layers & Legend
+      </div>
+
+      <!-- Layer 1: Active Disaster Rings -->
+      <label class="legend-item" style="cursor: pointer;">
+        <input type="checkbox" id="toggle_alerts" checked style="accent-color: #ef4444; margin-right: 4px;">
+        <span class="legend-badge" style="background: rgba(239, 68, 68, 0.4); border: 2px solid #ef4444;"></span>
+        <span>Disaster Danger Zones</span>
+        <span id="legend_cnt_alerts" class="badge badge-critical" style="margin-left: auto; font-size: 0.68rem; padding: 1px 6px;">0</span>
+      </label>
+
+      <!-- Layer 2: Registered Farms -->
+      <label class="legend-item" style="cursor: pointer;">
+        <input type="checkbox" id="toggle_farms" checked style="accent-color: #f59e0b; margin-right: 4px;">
+        <span class="legend-badge" style="background: #f59e0b;"></span>
+        <span>At-Risk Livestock Farms</span>
+        <span id="legend_cnt_farms" class="badge badge-pending" style="margin-left: auto; font-size: 0.68rem; padding: 1px 6px;">0</span>
+      </label>
+
+      <!-- Layer 3: Transport Volunteers -->
+      <label class="legend-item" style="cursor: pointer;">
+        <input type="checkbox" id="toggle_volunteers" checked style="accent-color: #3b82f6; margin-right: 4px;">
+        <span class="legend-badge" style="background: #3b82f6;"></span>
+        <span>Rescue Vehicles / Volunteers</span>
+        <span id="legend_cnt_volunteers" class="badge badge-normal" style="margin-left: auto; font-size: 0.68rem; padding: 1px 6px;">0</span>
+      </label>
+
+      <!-- Layer 4: Shelters -->
+      <label class="legend-item" style="cursor: pointer;">
+        <input type="checkbox" id="toggle_shelters" checked style="accent-color: #10b981; margin-right: 4px;">
+        <span class="legend-badge" style="background: #10b981;"></span>
+        <span>Safe Emergency Shelters</span>
+        <span id="legend_cnt_shelters" class="badge badge-rescued" style="margin-left: auto; font-size: 0.68rem; padding: 1px 6px;">0</span>
+      </label>
+
+      <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border-color); font-size: 0.72rem; color: #94a3b8; line-height: 1.3;">
+        <em>Click on any pin to view livestock headcounts, gestation/injury status, or dispatch assistance.</em>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Context & Geographic Verification Bar -->
+  <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 0.8rem;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span class="badge badge-normal" style="background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4);">
+        GEOGRAPHIC CONTEXT
+      </span>
+      <span style="color: var(--text-secondary);">
+        Simulated coordinate mesh across <strong>Majuli River Island</strong> & Brahmaputra flood plains, Assam (26.9°N, 94.2°E).
+      </span>
+    </div>
+    <div style="color: var(--text-muted); font-size: 0.75rem;">
+      Basemap: © OpenStreetMap contributors
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+{% endblock %}

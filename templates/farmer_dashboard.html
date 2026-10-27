@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Farmer Dashboard — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div class="farmer-dashboard-container" style="max-width: 1200px; margin: 0 auto; padding-bottom: 40px;">
+
+  <!-- Header Banner -->
+  <div class="page-header" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px 28px; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+          <span style="font-size: 1.8rem;">🌾</span>
+          <h2 style="margin: 0; font-size: 1.6rem; font-weight: 800; color: #fff;">
+            Farmer Operations Portal
+          </h2>
+          <span class="badge badge-normal" style="font-size: 0.72rem;">Farmer Role</span>
+        </div>
+        <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">
+          Farm Owner: <strong>{{ farmer.name if farmer else current_user.full_name }}</strong> | 
+          Village: <strong>{{ farmer.village if farmer else current_user.village }}</strong> | 
+          Phone: <strong>{{ farmer.phone if farmer else current_user.phone }}</strong>
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <a href="{{ url_for('change_password') }}" class="btn btn-sm btn-outline">
+          🔑 Change Password
+        </a>
+        <a href="#requestSection" class="btn btn-sm btn-danger">
+          🚨 Emergency Rescue
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 Overview Metric Cards -->
+  <div class="stats-grid" style="margin-bottom: 28px;">
+    <!-- Card 1: Registered Animals -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">🐄</div>
+      <div class="stat-content">
+        <div class="stat-value">{{ farmer.animal_count if farmer else 0 }}</div>
+        <div class="stat-label">Registered Animals</div>
+        <div class="stat-sub">
+          {{ farmer.cattle_count if farmer else 0 }} Cattle • {{ farmer.buffalo_count if farmer else 0 }} Buffalo
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Active Request Status -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">🚨</div>
+      <div class="stat-content">
+        <div class="stat-value" style="font-size: 1.35rem; margin-top: 4px;">
+          {% if farmer and farmer.rescue_status == 'Requested' %}
+            <span class="badge badge-pending">Requested</span>
+          {% elif farmer and farmer.rescue_status == 'Verified' %}
+            <span class="badge badge-high">Verified</span>
+          {% elif farmer and farmer.rescue_status == 'Assigned' %}
+            <span class="badge badge-normal">Team Assigned</span>
+          {% elif farmer and farmer.rescue_status == 'In Progress' %}
+            <span class="badge badge-critical">In Progress</span>
+          {% elif farmer and farmer.rescue_status in ('Completed', 'Safe in Shelter', 'Rescued') %}
+            <span class="badge badge-rescued">Safe in Shelter</span>
+          {% elif farmer and farmer.rescue_status == 'Cancelled' %}
+            <span class="badge badge-normal" style="background: #475569;">Cancelled</span>
+          {% else %}
+            <span class="badge badge-normal" style="background: #334155;">None Active</span>
+          {% endif %}
+        </div>
+        <div class="stat-label">Rescue Status</div>
+        <div class="stat-sub">
+          Priority: {{ farmer.priority if farmer else 'Normal' }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Relevant Local Alerts -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">⚠️</div>
+      <div class="stat-content">
+        <div class="stat-value">{{ relevant_alerts|length }}</div>
+        <div class="stat-label">Relevant Local Alerts</div>
+        <div class="stat-sub">{{ farmer.village if farmer else 'Your Area' }} Threat Level</div>
+      </div>
+    </div>
+
+    <!-- Card 4: Confirmed Safe Animals -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">🏠</div>
+      <div class="stat-content">
+        <div class="stat-value">
+          {% if farmer and farmer.rescue_status in ('Completed', 'Safe in Shelter', 'Rescued') %}
+            {{ farmer.animal_count }}
+          {% else %}
+            0
+          {% endif %}
+        </div>
+        <div class="stat-label">Animals Confirmed Safe</div>
+        <div class="stat-sub">Evacuated to Shelter</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Grid: Rescue Request Tracker & Livestock Editor -->
+  <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 28px; margin-bottom: 32px;">
+
+    <!-- Left: Rescue Request Tracker & Emergency Action -->
+    <div id="requestSection">
+      
+      <!-- Card: Live Rescue Request Tracking -->
+      <div class="card" style="border: 1px solid var(--border-color); padding: 24px; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+          <h3 style="font-size: 1.2rem; font-weight: 700; color: #fff; margin: 0; display: flex; align-items: center; gap: 8px;">
+            <span>🧭</span> Rescue Evacuation Lifecycle
+          </h3>
+          {% if farmer and farmer.rescue_status in ('Requested', 'Verified', 'Assigned', 'In Progress') %}
+            <form action="{{ url_for('farmer_dashboard') }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to cancel this emergency rescue request?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="action" value="cancel_request">
+              <input type="hidden" name="reason" value="Cancelled by farmer (floodwaters receded)">
+              <button type="submit" class="btn btn-sm btn-outline" style="border-color: #ef4444; color: #fca5a5; font-size: 0.75rem;">
+                ✕ Cancel Request
+              </button>
+            </form>
+          {% endif %}
+        </div>
+
+        {% if farmer and farmer.rescue_status in ('Requested', 'Verified', 'Assigned', 'In Progress', 'Completed', 'Safe in Shelter') %}
+          
+          <!-- Lifecycle Visual Stepper -->
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 24px; text-align: center;">
+            
+            <!-- Step 1: Requested -->
+            <div style="padding: 10px 4px; border-radius: var(--radius-sm); background: {% if farmer.rescue_status in ('Requested', 'Verified', 'Assigned', 'In Progress', 'Completed', 'Safe in Shelter') %}rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8;{% else %}var(--bg-surface); opacity: 0.5;{% endif %}">
+              <div style="font-size: 1.1rem;">📝</div>
+              <div style="font-size: 0.75rem; font-weight: 700; color: #fff; margin-top: 4px;">1. Requested</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted);">Submitted</div>
+            </div>
+
+            <!-- Step 2: Verified -->
+            <div style="padding: 10px 4px; border-radius: var(--radius-sm); background: {% if farmer.rescue_status in ('Verified', 'Assigned', 'In Progress', 'Completed', 'Safe in Shelter') %}rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b;{% else %}var(--bg-surface); opacity: 0.5;{% endif %}">
+              <div style="font-size: 1.1rem;">🔍</div>
+              <div style="font-size: 0.75rem; font-weight: 700; color: #fff; margin-top: 4px;">2. Verified</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted);">By Rescue Cell</div>
+            </div>
+
+            <!-- Step 3: Assigned -->
+            <div style="padding: 10px 4px; border-radius: var(--radius-sm); background: {% if farmer.rescue_status in ('Assigned', 'In Progress', 'Completed', 'Safe in Shelter') %}rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6;{% else %}var(--bg-surface); opacity: 0.5;{% endif %}">
+              <div style="font-size: 1.1rem;">🚚</div>
+              <div style="font-size: 0.75rem; font-weight: 700; color: #fff; margin-top: 4px;">3. Assigned</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted);">Team Matched</div>
+            </div>
+
+            <!-- Step 4: In Progress -->
+            <div style="padding: 10px 4px; border-radius: var(--radius-sm); background: {% if farmer.rescue_status in ('In Progress', 'Completed', 'Safe in Shelter') %}rgba(239, 68, 68, 0.2); border: 1px solid #ef4444;{% else %}var(--bg-surface); opacity: 0.5;{% endif %}">
+              <div style="font-size: 1.1rem;">🚤</div>
+              <div style="font-size: 0.75rem; font-weight: 700; color: #fff; margin-top: 4px;">4. In Progress</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted);">In Evacuation</div>
+            </div>
+
+            <!-- Step 5: Completed -->
+            <div style="padding: 10px 4px; border-radius: var(--radius-sm); background: {% if farmer.rescue_status in ('Completed', 'Safe in Shelter') %}rgba(16, 185, 129, 0.2); border: 1px solid #10b981;{% else %}var(--bg-surface); opacity: 0.5;{% endif %}">
+              <div style="font-size: 1.1rem;">🏠</div>
+              <div style="font-size: 0.75rem; font-weight: 700; color: #fff; margin-top: 4px;">5. Safe in Shelter</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted);">Completed</div>
+            </div>
+
+          </div>
+
+          <!-- Assigned Rescue Team & Shelter Destination Info -->
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; margin-bottom: 16px;">
+            <div style="font-weight: 700; color: #fff; font-size: 0.95rem; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <span>🛡️</span> Assigned Rescue Units & Shelter Destination
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              
+              <!-- Assigned Volunteer Unit -->
+              <div style="background: rgba(2, 132, 199, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: var(--radius-sm); padding: 12px;">
+                <div style="font-size: 0.75rem; color: #7dd3fc; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">
+                  Assigned Volunteer / Vehicle
+                </div>
+                {% if farmer.vol_name %}
+                  <div style="font-size: 0.95rem; font-weight: 700; color: #fff;">{{ farmer.vol_name }}</div>
+                  <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+                    Equipment: <strong>{{ farmer.vol_resource }}</strong> (Cap: {{ farmer.vol_capacity }} animals)
+                  </div>
+                  <div style="font-size: 0.82rem; color: #93c5fd; margin-top: 4px;">
+                    📞 Contact: <a href="tel:{{ farmer.vol_phone }}" style="color: #93c5fd; font-weight: 600;">{{ farmer.vol_phone }}</a>
+                  </div>
+                  <div style="font-size: 0.75rem; margin-top: 4px;">
+                    Status: <span class="badge badge-normal" style="font-size: 0.65rem;">{{ farmer.vol_status or 'Assigned' }}</span>
+                  </div>
+                {% else %}
+                  <div style="font-size: 0.85rem; color: var(--text-muted); font-style: italic; margin-top: 4px;">
+                    Coordinator is currently selecting an available rescue vehicle for your village.
+                  </div>
+                {% endif %}
+              </div>
+
+              <!-- Assigned Destination Shelter -->
+              <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(52, 211, 153, 0.2); border-radius: var(--radius-sm); padding: 12px;">
+                <div style="font-size: 0.75rem; color: #6ee7b7; font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">
+                  Destination Safe Shelter
+                </div>
+                {% if farmer.shelter_name %}
+                  <div style="font-size: 0.95rem; font-weight: 700; color: #fff;">{{ farmer.shelter_name }}</div>
+                  <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+                    Location: <strong>{{ farmer.shelter_village }}</strong>
+                  </div>
+                  <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+                    Capacity: <strong>{{ farmer.shelter_occupied }} / {{ farmer.shelter_total }}</strong> slots
+                  </div>
+                  <div style="font-size: 0.82rem; color: #6ee7b7; margin-top: 4px;">
+                    👤 Contact: {{ farmer.shelter_contact }} ({{ farmer.shelter_phone }})
+                  </div>
+                  <div style="display: flex; gap: 6px; margin-top: 6px; font-size: 0.7rem;">
+                    {% if farmer.shelter_water %}<span class="badge badge-normal" style="font-size: 0.65rem;">💧 Water Ready</span>{% endif %}
+                    {% if farmer.shelter_fodder %}<span class="badge badge-normal" style="font-size: 0.65rem;">🌾 Fodder Ready</span>{% endif %}
+                    {% if farmer.shelter_vet %}<span class="badge badge-normal" style="font-size: 0.65rem;">🩺 Vet on Site</span>{% endif %}
+                  </div>
+                {% else %}
+                  <div style="font-size: 0.85rem; color: var(--text-muted); font-style: italic; margin-top: 4px;">
+                    Safe high-ground shelter will be confirmed during dispatch.
+                  </div>
+                {% endif %}
+              </div>
+
+            </div>
+
+            <!-- Urgent Special Notes -->
+            {% if farmer.special_needs %}
+              <div style="margin-top: 12px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; border-radius: var(--radius-sm); font-size: 0.82rem; color: #fca5a5;">
+                <strong>Reported Evacuation Condition:</strong> {{ farmer.special_needs }}
+              </div>
+            {% endif %}
+
+          </div>
+
+        {% else %}
+          
+          <div style="text-align: center; padding: 24px 16px; background: var(--bg-surface); border-radius: var(--radius-md); border: 1px dashed var(--border-color); margin-bottom: 20px;">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">🟢</div>
+            <h4 style="color: #fff; margin-bottom: 6px;">No Active Evacuation Request</h4>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; max-width: 440px; margin: 0 auto;">
+              Your livestock records are registered with the coordination network. If rising floodwaters threaten your cattle shed, submit an emergency rescue request below.
+            </p>
+          </div>
+
+        {% endif %}
+
+        <!-- Emergency Rescue Request Form -->
+        <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); padding: 20px;">
+          <h4 style="font-size: 1.05rem; font-weight: 700; color: #fca5a5; margin: 0 0 12px; display: flex; align-items: center; gap: 8px;">
+            <span>🚨</span> Submit or Update Emergency Rescue Request
+          </h4>
+
+          <form action="{{ url_for('farmer_dashboard') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="action" value="submit_request">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+              <div>
+                <label for="req_urgency" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Emergency Urgency</label>
+                <select id="req_urgency" name="urgency" class="form-control" style="width: 100%;">
+                  <option value="Critical" {% if farmer and farmer.priority == 'Critical' %}selected{% endif %}>🚨 Critical (Water entering sheds / immediate danger)</option>
+                  <option value="High" {% if farmer and farmer.priority == 'High' %}selected{% endif %}>⚠️ High (Flood surge nearby / need boat within 4 hrs)</option>
+                  <option value="Normal" {% if farmer and farmer.priority == 'Normal' %}selected{% endif %}>ℹ️ Normal (Pre-emptive relocation before dyke breach)</option>
+                </select>
+              </div>
+
+              <div>
+                <label for="req_animal_count" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Animals Needing Transport</label>
+                <input type="number" id="req_animal_count" name="animal_count" class="form-control" value="{{ farmer.animal_count if farmer else 1 }}" min="1" required style="width: 100%;">
+              </div>
+            </div>
+
+            <div style="margin-bottom: 14px;">
+              <label for="req_location" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Farm / Pickup Village</label>
+              <input type="text" id="req_location" name="village" class="form-control" value="{{ farmer.village if farmer else '' }}" placeholder="e.g. Salmora Southern Char" required style="width: 100%;">
+            </div>
+
+            <div style="margin-bottom: 16px;">
+              <label for="req_notes" class="form-label" style="font-weight: 600; font-size: 0.82rem;">Special Needs / Situation Report</label>
+              <textarea id="req_notes" name="request_notes" class="form-control" rows="2" style="width: 100%;" placeholder="e.g. Water is 2 feet deep in shed, 1 pregnant cow unable to wade, need high-snorkel tractor or motorized boat.">{{ farmer.special_needs if farmer else '' }}</textarea>
+            </div>
+
+            <button type="submit" class="btn btn-danger" style="width: 100%; padding: 11px; font-weight: 700; font-size: 0.95rem;">
+              🚨 Broadcast Rescue Request to Coordination Cell
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Right: Add / Edit Farmer's Own Livestock Records & Alerts -->
+    <div>
+      
+      <!-- Card: Manage Own Livestock Records -->
+      <div class="card" style="border: 1px solid var(--border-color); padding: 22px; margin-bottom: 24px;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0 0 16px; display: flex; align-items: center; gap: 8px;">
+          <span>🐄</span> My Livestock & Farm Details
+        </h3>
+
+        <form action="{{ url_for('farmer_dashboard') }}" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="action" value="update_livestock">
+
+          <div style="margin-bottom: 12px;">
+            <label for="fl_name" class="form-label" style="font-size: 0.82rem; font-weight: 600;">Farmer Full Name</label>
+            <input type="text" id="fl_name" name="name" class="form-control" value="{{ farmer.name if farmer else current_user.full_name }}" required style="width: 100%;">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <label for="fl_phone" class="form-label" style="font-size: 0.82rem; font-weight: 600;">Phone Number</label>
+              <input type="tel" id="fl_phone" name="phone" class="form-control" value="{{ farmer.phone if farmer else current_user.phone }}" required style="width: 100%;">
+            </div>
+            <div>
+              <label for="fl_village" class="form-label" style="font-size: 0.82rem; font-weight: 600;">Village</label>
+              <input type="text" id="fl_village" name="village" class="form-control" value="{{ farmer.village if farmer else current_user.village }}" required style="width: 100%;">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+            <div>
+              <label for="fl_cattle" class="form-label" style="font-size: 0.8rem; font-weight: 600;">Cattle</label>
+              <input type="number" id="fl_cattle" name="cattle_count" class="form-control" value="{{ farmer.cattle_count if farmer else 0 }}" min="0" style="width: 100%;" oninput="updateAnimalTotal()">
+            </div>
+            <div>
+              <label for="fl_buffalo" class="form-label" style="font-size: 0.8rem; font-weight: 600;">Buffalo</label>
+              <input type="number" id="fl_buffalo" name="buffalo_count" class="form-control" value="{{ farmer.buffalo_count if farmer else 0 }}" min="0" style="width: 100%;" oninput="updateAnimalTotal()">
+            </div>
+            <div>
+              <label for="fl_other" class="form-label" style="font-size: 0.8rem; font-weight: 600;">Calves/Other</label>
+              <input type="number" id="fl_other" name="other_count" class="form-control" value="{{ farmer.other_count if farmer else 0 }}" min="0" style="width: 100%;" oninput="updateAnimalTotal()">
+            </div>
+          </div>
+
+          <div style="margin-bottom: 12px; background: var(--bg-surface); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); font-size: 0.82rem; display: flex; justify-content: space-between;">
+            <span style="color: var(--text-secondary);">Total Livestock Headcount:</span>
+            <strong id="farmerTotalAnimalsDisplay" style="color: #38bdf8; font-size: 0.95rem;">
+              {{ farmer.animal_count if farmer else 0 }}
+            </strong>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div>
+              <label for="fl_lat" class="form-label" style="font-size: 0.78rem;">Latitude (GPS)</label>
+              <input type="text" id="fl_lat" name="latitude" class="form-control" value="{{ farmer.latitude if farmer and farmer.latitude else '' }}" placeholder="e.g. 26.9200" style="width: 100%;">
+            </div>
+            <div>
+              <label for="fl_lng" class="form-label" style="font-size: 0.78rem;">Longitude (GPS)</label>
+              <input type="text" id="fl_lng" name="longitude" class="form-control" value="{{ farmer.longitude if farmer and farmer.longitude else '' }}" placeholder="e.g. 94.2200" style="width: 100%;">
+            </div>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <label for="fl_needs" class="form-label" style="font-size: 0.82rem; font-weight: 600;">Special Care Requirements</label>
+            <textarea id="fl_needs" name="special_needs" class="form-control" rows="2" style="width: 100%;" placeholder="e.g. Pregnant cow due in 1 week, calf needs milk, herd injured by gravel.">{{ farmer.special_needs if farmer else '' }}</textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 9px; font-weight: 700; font-size: 0.88rem;">
+            💾 Save Livestock Records
+          </button>
+        </form>
+      </div>
+
+      <!-- Card: Verified Alerts in Farmer's Area -->
+      <div class="card" style="border: 1px solid var(--border-color); padding: 22px;">
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0 0 14px; display: flex; align-items: center; gap: 8px;">
+          <span>🚨</span> Verified Disaster Alerts in Your Area
+        </h3>
+
+        {% if relevant_alerts and relevant_alerts|length > 0 %}
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            {% for a in relevant_alerts %}
+              <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-left: 4px solid {% if a.severity == 'Critical' %}#ef4444{% elif a.severity == 'High' %}#f59e0b{% else %}#3b82f6{% endif %}; border-radius: var(--radius-sm); padding: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                  <strong style="color: #fff; font-size: 0.88rem;">{{ a.title }}</strong>
+                  <span class="badge {% if a.severity == 'Critical' %}badge-critical{% elif a.severity == 'High' %}badge-high{% else %}badge-normal{% endif %}" style="font-size: 0.65rem;">
+                    {{ a.severity }}
+                  </span>
+                </div>
+                <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 6px 0 8px; line-height: 1.4;">
+                  {{ a.description }}
+                </p>
+                <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+                  <span>📍 {{ a.affected_area }}</span>
+                  <span>Issued: {{ a.created_at[:16] }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="text-align: center; padding: 16px; color: var(--text-muted); font-size: 0.85rem;">
+            🟢 No active severe disaster alerts currently recorded for {{ farmer.village if farmer else 'your village' }}.
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+function updateAnimalTotal() {
+  const c = parseInt(document.getElementById('fl_cattle').value) || 0;
+  const b = parseInt(document.getElementById('fl_buffalo').value) || 0;
+  const o = parseInt(document.getElementById('fl_other').value) || 0;
+  const total = c + b + o;
+  const disp = document.getElementById('farmerTotalAnimalsDisplay');
+  if (disp) disp.textContent = total;
+}
+</script>
+{% endblock %}

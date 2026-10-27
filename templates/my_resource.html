@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}My Rescue Resource & Availability — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h2>🚚 My Rescue Resource & Deployment Control</h2>
+    <p>Manage your registered transport vehicles, emergency equipment, and real-time deployment availability.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('map_view') }}" class="btn btn-outline">
+      🗺️ View Tactical Map
+    </a>
+  </div>
+</div>
+
+{% if not volunteer %}
+  <div class="card" style="text-align: center; padding: 40px;">
+    <div style="font-size: 2.5rem; margin-bottom: 12px;">🚜</div>
+    <h3 style="color: #fff; margin-bottom: 8px;">No Rescue Resource Linked Yet</h3>
+    <p style="color: var(--text-secondary); max-width: 480px; margin: 0 auto 20px;">
+      Your volunteer account is active, but you have not registered your rescue transport or aid resource yet.
+    </p>
+    <a href="{{ url_for('volunteers') }}" class="btn btn-success">Register Equipment Now</a>
+  </div>
+{% else %}
+
+  <!-- Current Availability Banner -->
+  <div class="card" style="border-left: 5px solid {% if volunteer.availability == 'Available' %}#10b981{% elif volunteer.availability == 'Deployed' %}#0284c7{% elif volunteer.availability == 'Standby' %}#f59e0b{% else %}#64748b{% endif %};">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+      <div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">
+          Current Resource Deployment Status
+        </div>
+        <div style="font-size: 1.4rem; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+          {% if volunteer.availability == 'Available' %}
+            <span style="color: #34d399;">✅ Ready for Immediate Dispatch</span>
+          {% elif volunteer.availability == 'Deployed' %}
+            <span style="color: #38bdf8;">🚚 Currently Deployed on Mission</span>
+          {% elif volunteer.availability == 'Standby' %}
+            <span style="color: #fbbf24;">⏳ On Standby (Ready < 1h)</span>
+          {% else %}
+            <span style="color: #94a3b8;">⏸️ Off-Duty / Maintenance</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Quick Toggle Buttons -->
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <form action="{{ url_for('my_resource') }}" method="POST" style="display: inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="action" value="set_availability">
+          <input type="hidden" name="availability" value="Available">
+          <button type="submit" class="btn btn-sm btn-success" {% if volunteer.availability == 'Available' %}disabled style="opacity: 0.6;"{% endif %}>
+            Mark Ready
+          </button>
+        </form>
+
+        <form action="{{ url_for('my_resource') }}" method="POST" style="display: inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="action" value="set_availability">
+          <input type="hidden" name="availability" value="Standby">
+          <button type="submit" class="btn btn-sm btn-outline" style="border-color: #fbbf24; color: #fde68a;" {% if volunteer.availability == 'Standby' %}disabled style="opacity: 0.6;"{% endif %}>
+            Standby
+          </button>
+        </form>
+
+        <form action="{{ url_for('my_resource') }}" method="POST" style="display: inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="action" value="set_availability">
+          <input type="hidden" name="availability" value="Off-duty">
+          <button type="submit" class="btn btn-sm btn-outline" {% if volunteer.availability == 'Off-duty' %}disabled style="opacity: 0.6;"{% endif %}>
+            Off-Duty
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary Metric Cards -->
+  <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px;">
+    <div class="stat-card" style="--stat-color: #3b82f6;">
+      <div class="stat-header">
+        <span class="stat-label">Resource Type</span>
+        <span class="stat-icon">🚛</span>
+      </div>
+      <div class="stat-value" style="font-size: 1.5rem;">{{ volunteer.resource_type }}</div>
+      <div class="stat-subtext">Unit: {{ volunteer.name }}</div>
+    </div>
+
+    <div class="stat-card" style="--stat-color: #fbbf24;">
+      <div class="stat-header">
+        <span class="stat-label">Carrying Capacity</span>
+        <span class="stat-icon">📦</span>
+      </div>
+      <div class="stat-value">{{ volunteer.capacity }}</div>
+      <div class="stat-subtext">Livestock units per trip</div>
+    </div>
+
+    <div class="stat-card" style="--stat-color: #10b981;">
+      <div class="stat-header">
+        <span class="stat-label">Base Location</span>
+        <span class="stat-icon">📍</span>
+      </div>
+      <div class="stat-value" style="font-size: 1.5rem;">{{ volunteer.village }}</div>
+      <div class="stat-subtext">Org: {{ volunteer.organization }}</div>
+    </div>
+  </div>
+
+  <!-- Resource Settings Form -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        ✏️ Update Resource Specifications & Capacity
+      </div>
+    </div>
+
+    <form action="{{ url_for('my_resource') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="action" value="update_details">
+
+      <div class="form-grid">
+        <div>
+          <label class="form-label" for="v_type">Resource Classification *</label>
+          <select id="v_type" name="resource_type" class="form-select" style="width: 100%;">
+            <option value="Vehicle" {% if volunteer.resource_type == 'Vehicle' %}selected{% endif %}>Vehicle (Tractor / Truck / Boat)</option>
+            <option value="Shelter" {% if volunteer.resource_type == 'Shelter' %}selected{% endif %}>Emergency Barn / High Ground Pen</option>
+            <option value="Fodder" {% if volunteer.resource_type == 'Fodder' %}selected{% endif %}>Dry Fodder / Feed Supply</option>
+            <option value="Water & First Aid" {% if volunteer.resource_type == 'Water & First Aid' %}selected{% endif %}>Water & Mobile Vet Aid</option>
+            <option value="Rescue Team" {% if volunteer.resource_type == 'Rescue Team' %}selected{% endif %}>Rescue Team / Handlers</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_cap">Capacity (Animal count or units) *</label>
+          <input type="number" id="v_cap" name="capacity" class="form-control" style="width: 100%;" min="0" value="{{ volunteer.capacity }}" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_phone">Contact Phone *</label>
+          <input type="tel" id="v_phone" name="phone" class="form-control" style="width: 100%;" value="{{ volunteer.phone }}" pattern="[0-9]{10}" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_avail_select">Availability Status</label>
+          <select id="v_avail_select" name="availability" class="form-select" style="width: 100%;">
+            <option value="Available" {% if volunteer.availability == 'Available' %}selected{% endif %}>Available (Ready for dispatch)</option>
+            <option value="Deployed" {% if volunteer.availability == 'Deployed' %}selected{% endif %}>Deployed (On current mission)</option>
+            <option value="Standby" {% if volunteer.availability == 'Standby' %}selected{% endif %}>Standby (Ready within 1h)</option>
+            <option value="Off-duty" {% if volunteer.availability == 'Off-duty' %}selected{% endif %}>Off-duty (Rest / Maintenance)</option>
+          </select>
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="v_details">Equipment & Operational Details</label>
+          <textarea id="v_details" name="resource_details" class="form-control" style="width: 100%;" rows="2">{{ volunteer.resource_details }}</textarea>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="submit" class="btn btn-success">
+          Save Resource Updates
+        </button>
+      </div>
+    </form>
+  </div>
+
+{% endif %}
+{% endblock %}

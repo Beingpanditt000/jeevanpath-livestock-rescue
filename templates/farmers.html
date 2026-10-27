@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Farmers & Livestock — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h2>🌾 Registered Farmers & Livestock Database</h2>
+    <p>Monitor livestock census, critical medical/gestation needs, and evacuation status.</p>
+  </div>
+  <button type="button" class="btn btn-primary" data-modal-target="modal-new-farmer">
+    + Register Farmer & Livestock
+  </button>
+</div>
+
+<!-- Filters & Search Toolbar -->
+<div class="filters-bar">
+  <form action="{{ url_for('farmers') }}" method="GET" style="display: flex; gap: 12px; flex-wrap: wrap; width: 100%; align-items: center;">
+    
+    <!-- Village Filter -->
+    <div class="filter-group">
+      <label class="filter-label" for="filter_village">Village:</label>
+      <select id="filter_village" name="village" class="form-select">
+        <option value="">All Villages</option>
+        {% for v in villages %}
+          <option value="{{ v }}" {% if selected_village == v %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Livestock Type Filter -->
+    <div class="filter-group">
+      <label class="filter-label" for="filter_type">Livestock:</label>
+      <select id="filter_type" name="livestock_type" class="form-select">
+        <option value="">All Types</option>
+        <option value="Cattle" {% if selected_type == 'Cattle' %}selected{% endif %}>Cattle</option>
+        <option value="Buffalo" {% if selected_type == 'Buffalo' %}selected{% endif %}>Buffalo</option>
+        <option value="Mixed" {% if selected_type == 'Mixed' %}selected{% endif %}>Mixed</option>
+      </select>
+    </div>
+
+    <!-- Rescue Status Filter -->
+    <div class="filter-group">
+      <label class="filter-label" for="filter_status">Rescue Status:</label>
+      <select id="filter_status" name="rescue_status" class="form-select">
+        <option value="">All Statuses</option>
+        <option value="Pending" {% if selected_status == 'Pending' %}selected{% endif %}>Pending</option>
+        <option value="In Progress" {% if selected_status == 'In Progress' %}selected{% endif %}>In Progress</option>
+        <option value="Rescued" {% if selected_status == 'Rescued' %}selected{% endif %}>Rescued</option>
+        <option value="Safe in Shelter" {% if selected_status == 'Safe in Shelter' %}selected{% endif %}>Safe in Shelter</option>
+      </select>
+    </div>
+
+    <!-- Search input -->
+    <div class="filter-group" style="flex: 1; min-width: 200px;">
+      <input type="text" name="q" class="form-control" placeholder="Search name, village, or phone..." value="{{ search_query }}" style="width: 100%;">
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+      {% if selected_village or selected_type or selected_status or search_query %}
+        <a href="{{ url_for('farmers') }}" class="btn btn-sm btn-outline">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Farmers Data Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      <span>Farms ({{ farmers|length }} records)</span>
+    </div>
+    {% if not is_coordinator %}
+      <span style="font-size: 0.78rem; color: var(--text-muted);">
+        🔒 Public View: Contact numbers masked for privacy. Enable Coordinator Mode for emergency contact access.
+      </span>
+    {% else %}
+      <span style="font-size: 0.78rem; color: #a7f3d0; font-weight: 600;">
+        🛡️ Coordinator View: Direct emergency numbers unlocked.
+      </span>
+    {% endif %}
+  </div>
+
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Farmer Name</th>
+          <th>Contact Phone</th>
+          <th>Village / Location</th>
+          <th>Livestock Breakdown</th>
+          <th>Special Risk Needs</th>
+          <th>Priority</th>
+          <th>Rescue Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in farmers %}
+          <tr>
+            <td>
+              <strong>{{ f.name }}</strong>
+            </td>
+            <td>
+              {% if is_coordinator %}
+                <a href="tel:{{ f.phone }}" style="font-family: monospace; font-weight: bold; color: #38bdf8;">
+                  📞 {{ f.phone }}
+                </a>
+              {% else %}
+                <span style="font-family: monospace; color: var(--text-muted);" title="Masked for privacy">
+                  🔒 {{ mask_phone(f.phone) }}
+                </span>
+              {% endif %}
+            </td>
+            <td>
+              <span>{{ f.village }}</span>
+              {% if f.tehsil %}<br><span style="font-size: 0.75rem; color: var(--text-muted);">{{ f.tehsil }}</span>{% endif %}
+            </td>
+            <td>
+              <strong>{{ f.animal_count }} Total</strong>
+              <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                {{ f.cattle_count }} Cattle • {{ f.buffalo_count }} Buffalo
+              </div>
+            </td>
+            <td>
+              {% if f.special_needs %}
+                <span style="font-size: 0.8rem; color: {% if f.priority == 'Critical' %}#fca5a5{% else %}#fde68a{% endif %};">
+                  {{ f.special_needs }}
+                </span>
+              {% else %}
+                <span style="color: var(--text-muted); font-size: 0.78rem;">Standard evacuation</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if f.priority == 'Critical' %}
+                <span class="badge badge-critical pulse-dot">CRITICAL</span>
+              {% elif f.priority == 'High' %}
+                <span class="badge badge-high">HIGH</span>
+              {% else %}
+                <span class="badge badge-normal">NORMAL</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if f.rescue_status == 'Rescued' or f.rescue_status == 'Safe in Shelter' %}
+                <span class="badge badge-rescued">✅ {{ f.rescue_status }}</span>
+                {% if f.shelter_name %}
+                  <div style="font-size: 0.72rem; color: #a7f3d0; margin-top: 3px;">At: {{ f.shelter_name }}</div>
+                {% endif %}
+              {% elif f.rescue_status == 'In Progress' %}
+                <span class="badge badge-in-progress">🚚 {{ f.rescue_status }}</span>
+                {% if f.volunteer_name %}
+                  <div style="font-size: 0.72rem; color: #7dd3fc; margin-top: 3px;">Unit: {{ f.volunteer_name }}</div>
+                {% endif %}
+              {% else %}
+                <span class="badge badge-pending">⏳ Pending</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if f.rescue_status == 'Pending' %}
+                <a href="{{ url_for('coordinate') }}" class="btn btn-sm btn-primary">
+                  Dispatch
+                </a>
+              {% elif f.rescue_status == 'In Progress' %}
+                <a href="{{ url_for('coordinate') }}" class="btn btn-sm btn-outline">
+                  Update
+                </a>
+              {% else %}
+                <span style="color: #6ee7b7; font-size: 0.8rem; font-weight: 600;">Secure</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 24px; color: var(--text-muted);">
+              No farmers match the current filter criteria.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Reusable Modal: Register Farmer -->
+<div id="modal-new-farmer" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">🌾 Register Farmer & Livestock</h3>
+      <button type="button" class="modal-close" data-modal-close>✕</button>
+    </div>
+    <form action="{{ url_for('farmers') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <div class="form-group-full">
+          <label class="form-label" for="f_name">Farmer Full Name *</label>
+          <input type="text" id="f_name" name="name" class="form-control" style="width: 100%;" placeholder="e.g. Bhupen Deka" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="f_phone">Phone Number (10 digits) *</label>
+          <input type="tel" id="f_phone" name="phone" class="form-control" style="width: 100%;" placeholder="98XXXXXXXX" pattern="[0-9]{10}" required>
+          <div class="form-helper">Stored securely; masked publicly.</div>
+        </div>
+
+        <div>
+          <label class="form-label" for="f_village">Village / Settlement *</label>
+          <input type="text" id="f_village" name="village" class="form-control" style="width: 100%;" placeholder="e.g. Salmora" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="f_type">Livestock Category</label>
+          <select id="f_type" name="livestock_type" class="form-select" style="width: 100%;">
+            <option value="Cattle">Cattle (Cows/Bulls)</option>
+            <option value="Buffalo">Buffalo</option>
+            <option value="Mixed">Mixed (Cattle & Buffalo)</option>
+            <option value="Goat/Sheep">Goat / Sheep</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="input_cattle_count">Cattle Count</label>
+          <input type="number" id="input_cattle_count" name="cattle_count" class="form-control" style="width: 100%;" min="0" value="0">
+        </div>
+
+        <div>
+          <label class="form-label" for="input_buffalo_count">Buffalo Count</label>
+          <input type="number" id="input_buffalo_count" name="buffalo_count" class="form-control" style="width: 100%;" min="0" value="0">
+        </div>
+
+        <div>
+          <label class="form-label" for="input_other_count">Other Animals</label>
+          <input type="number" id="input_other_count" name="other_count" class="form-control" style="width: 100%;" min="0" value="0">
+        </div>
+
+        <div class="form-group-full" style="background: var(--bg-surface); padding: 10px; border-radius: var(--radius-sm); display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.85rem; font-weight: 600;">Total Animals Requiring Evacuation:</span>
+          <span id="display_total_animals" style="font-size: 1.2rem; font-weight: 800; color: var(--accent-amber-light);">0</span>
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="f_needs">Special Needs & Urgent Risk Factors</label>
+          <textarea id="f_needs" name="special_needs" class="form-control" style="width: 100%;" rows="2" placeholder="e.g. 2 pregnant cows, rising water 3ft near shed, calf cannot swim"></textarea>
+        </div>
+
+        <div>
+          <label class="form-label" for="f_lat">Latitude (Optional)</label>
+          <input type="text" id="f_lat" name="latitude" class="form-control" style="width: 100%;" placeholder="26.9165">
+        </div>
+
+        <div>
+          <label class="form-label" for="f_lng">Longitude (Optional)</label>
+          <input type="text" id="f_lng" name="longitude" class="form-control" style="width: 100%;" placeholder="94.2230">
+        </div>
+
+        <div class="form-group-full">
+          <button type="button" class="btn btn-sm btn-outline btn-autofill-gps" data-lat-id="f_lat" data-lng-id="f_lng" style="width: 100%;">
+            📍 Autofill with Realistic Majuli Flood Plain GPS
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit Registration</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

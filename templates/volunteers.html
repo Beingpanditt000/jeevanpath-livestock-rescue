@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Volunteers & Resources — JEEVANPATH{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">
+    <h2>🚚 Volunteer & Rescue Resources Registry</h2>
+    <p>Mobilize high-snorkel tractors, rescue boats, emergency fodder reserves, and veterinary aid.</p>
+  </div>
+  <button type="button" class="btn btn-success" data-modal-target="modal-new-volunteer">
+    + Register Volunteer / Resource
+  </button>
+</div>
+
+<!-- Filters Bar -->
+<div class="filters-bar">
+  <form action="{{ url_for('volunteers') }}" method="GET" style="display: flex; gap: 12px; flex-wrap: wrap; width: 100%; align-items: center;">
+    
+    <!-- Resource Type Filter -->
+    <div class="filter-group">
+      <label class="filter-label" for="filter_res_type">Resource Type:</label>
+      <select id="filter_res_type" name="resource_type" class="form-select">
+        <option value="">All Resource Types</option>
+        <option value="Vehicle" {% if selected_resource == 'Vehicle' %}selected{% endif %}>Vehicle (Tractor / Truck / Boat)</option>
+        <option value="Shelter" {% if selected_resource == 'Shelter' %}selected{% endif %}>Shelter / High Ground Pen</option>
+        <option value="Fodder" {% if selected_resource == 'Fodder' %}selected{% endif %}>Fodder & Feed Supply</option>
+        <option value="Water & First Aid" {% if selected_resource == 'Water & First Aid' %}selected{% endif %}>Water & Vet First Aid</option>
+        <option value="Rescue Team" {% if selected_resource == 'Rescue Team' %}selected{% endif %}>Rescue Team / Handlers</option>
+      </select>
+    </div>
+
+    <!-- Availability Filter -->
+    <div class="filter-group">
+      <label class="filter-label" for="filter_res_avail">Status:</label>
+      <select id="filter_res_avail" name="availability" class="form-select">
+        <option value="">All Statuses</option>
+        <option value="Available" {% if selected_avail == 'Available' %}selected{% endif %}>Available</option>
+        <option value="Deployed" {% if selected_avail == 'Deployed' %}selected{% endif %}>Deployed</option>
+        <option value="Standby" {% if selected_avail == 'Standby' %}selected{% endif %}>Standby</option>
+        <option value="Off-duty" {% if selected_avail == 'Off-duty' %}selected{% endif %}>Off-duty</option>
+      </select>
+    </div>
+
+    <div style="display: flex; gap: 8px;">
+      <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+      {% if selected_resource or selected_avail %}
+        <a href="{{ url_for('volunteers') }}" class="btn btn-sm btn-outline">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Volunteers Cards Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px;">
+  {% for v in volunteers %}
+    <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+          <div>
+            <h4 style="font-size: 1.1rem; color: #fff; font-weight: 700; margin-bottom: 2px;">{{ v.name }}</h4>
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ v.organization }} • 📍 {{ v.village }}</span>
+          </div>
+          {% if v.availability == 'Available' %}
+            <span class="badge badge-rescued">✅ Available</span>
+          {% elif v.availability == 'Deployed' %}
+            <span class="badge badge-in-progress">🚚 Deployed</span>
+          {% else %}
+            <span class="badge badge-normal">{{ v.availability }}</span>
+          {% endif %}
+        </div>
+
+        <div style="background: var(--bg-card-alt); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem;">
+            <span style="color: var(--text-secondary);">Resource Type:</span>
+            <strong style="color: #38bdf8;">{{ v.resource_type }}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem;">
+            <span style="color: var(--text-secondary);">Carrying Capacity:</span>
+            <strong style="color: #fbbf24;">{{ v.capacity }} units</strong>
+          </div>
+          {% if v.resource_details %}
+            <p style="font-size: 0.78rem; color: #cbd5e1; margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px;">
+              {{ v.resource_details }}
+            </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 10px; font-size: 0.82rem;">
+        <div>
+          {% if is_coordinator %}
+            <a href="tel:{{ v.phone }}" style="font-weight: 700; color: #38bdf8;">📞 {{ v.phone }}</a>
+          {% else %}
+            <span style="color: var(--text-muted); font-family: monospace;">🔒 {{ mask_phone(v.phone) }}</span>
+          {% endif %}
+        </div>
+        {% if v.availability == 'Available' and v.resource_type == 'Vehicle' %}
+          <a href="{{ url_for('coordinate') }}" class="btn btn-sm btn-primary">Dispatch Resource</a>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted);">
+      No volunteer resources found matching current criteria.
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Modal: Register Volunteer -->
+<div id="modal-new-volunteer" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">🚚 Register Volunteer / Rescue Resource</h3>
+      <button type="button" class="modal-close" data-modal-close>✕</button>
+    </div>
+    <form action="{{ url_for('volunteers') }}" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-grid">
+        <div class="form-group-full">
+          <label class="form-label" for="v_name">Volunteer / Organization Name *</label>
+          <input type="text" id="v_name" name="name" class="form-control" style="width: 100%;" placeholder="e.g. Kisan Tractor Squad" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_phone">Contact Phone (10 digits) *</label>
+          <input type="tel" id="v_phone" name="phone" class="form-control" style="width: 100%;" placeholder="94XXXXXXXX" pattern="[0-9]{10}" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_village">Base Village / Location *</label>
+          <input type="text" id="v_village" name="village" class="form-control" style="width: 100%;" placeholder="e.g. Kamalabari" required>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_type">Offered Resource Type *</label>
+          <select id="v_type" name="resource_type" class="form-select" style="width: 100%;" required>
+            <option value="Vehicle">Vehicle / Tractor / Truck / Boat</option>
+            <option value="Shelter">Emergency High Ground / Barn</option>
+            <option value="Fodder">Dry Fodder / Feed Supply</option>
+            <option value="Water & First Aid">Clean Water & Mobile Vet Aid</option>
+            <option value="Rescue Team">Physical Rescue / Evacuation Hand</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="v_cap">Capacity (Animal count or units)</label>
+          <input type="number" id="v_cap" name="capacity" class="form-control" style="width: 100%;" min="0" value="8" placeholder="e.g. 8 animals">
+        </div>
+
+        <div class="form-group-full">
+          <label class="form-label" for="v_details">Resource & Equipment Specifications</label>
+          <input type="text" id="v_details" name="resource_details" class="form-control" style="width: 100%;" placeholder="e.g. 45HP 4x4 tractor with high air snorkel & livestock trailer">
+        </div>
+
+        <div>
+          <label class="form-label" for="v_lat">Base Latitude</label>
+          <input type="text" id="v_lat" name="latitude" class="form-control" style="width: 100%;" placeholder="26.9620">
+        </div>
+
+        <div>
+          <label class="form-label" for="v_lng">Base Longitude</label>
+          <input type="text" id="v_lng" name="longitude" class="form-control" style="width: 100%;" placeholder="94.1700">
+        </div>
+
+        <div class="form-group-full">
+          <button type="button" class="btn btn-sm btn-outline btn-autofill-gps" data-lat-id="v_lat" data-lng-id="v_lng" style="width: 100%;">
+            📍 Autofill with Realistic GPS
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button type="button" class="btn btn-outline" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-success">Register Resource</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
